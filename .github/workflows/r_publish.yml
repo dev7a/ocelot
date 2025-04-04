@@ -51,6 +51,11 @@ on:
         required: false
         type: boolean
         default: true
+      dry-run:
+        description: 'Whether to perform a dry run (no actual publishing)'
+        required: false
+        type: boolean
+        default: false
     outputs:
       layer_arn:
         description: 'ARN of the published or reused layer'
@@ -121,4 +126,5 @@ jobs:
             --distribution "${{ inputs.distribution }}" \
             --collector-version "${{ inputs.collector-version }}" \
             --make-public ${{ inputs.make-public }} \
-            --build-tags "${{ inputs.build-tags }}"
+            --build-tags "${{ inputs.build-tags }}" \
+            --dry-run ${{ inputs.dry-run }}

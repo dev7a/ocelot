@@ -228,10 +228,23 @@ def publish_layer(
     arch: str,
     runtimes: Optional[str] = None,
     build_tags: Optional[str] = None,
+    dry_run: bool = False,
 ) -> Optional[str]:
     """Publish a new Lambda layer version using boto3."""
     subheader("Publishing layer")
     status("Layer name", layer_name)
+
+    if dry_run:
+        info("Dry Run", "Would publish layer with the following details:")
+        detail("  Layer Name", layer_name)
+        detail("  Region", region)
+        detail("  Architecture", arch)
+        detail("  Runtimes", runtimes or "[None]")
+        detail("  Build Tags", build_tags or "[None]")
+        # Simulate a successful ARN generation for dry run
+        simulated_arn = f"arn:aws:lambda:{region}:123456789012:layer:{layer_name}:1"
+        success("Dry Run", f"Simulated ARN: {simulated_arn}")
+        return simulated_arn
 
     # Construct description
     description = md5_hash
@@ -298,10 +311,14 @@ def publish_layer(
     return layer_arn
 
 
-def make_layer_public(layer_name: str, layer_arn: str, region: str) -> bool:
+def make_layer_public(layer_name: str, layer_arn: str, region: str, dry_run: bool = False) -> bool:
     """Make a Lambda layer version publicly accessible using boto3."""
     subheader("Making layer public")
     status("Layer ARN", layer_arn)
+
+    if dry_run:
+        info("Dry Run", f"Would make layer {layer_arn} public in {region}")
+        return True # Assume success for dry run
 
     if not layer_arn:
         error("No ARN", "Cannot make layer public")
@@ -363,10 +380,16 @@ def make_layer_public(layer_name: str, layer_arn: str, region: str) -> bool:
         return False
 
 
-def write_metadata_to_dynamodb(metadata: dict) -> bool:
+def write_metadata_to_dynamodb(metadata: dict, dry_run: bool = False) -> bool:
     """Write the collected layer metadata to the DynamoDB table."""
     subheader("Writing metadata")
     status("Target table", DYNAMODB_TABLE_NAME)
+
+    if dry_run:
+        info("Dry Run", "Would write the following metadata to DynamoDB:")
+        for key, value in metadata.items():
+            detail(f"  {key}", str(value))
+        return True # Assume success for dry run
 
     # Basic validation
     required_keys = [
@@ -467,11 +490,13 @@ def create_github_summary(
 
 
 def check_and_repair_dynamodb(
-    args_dict, existing_layer_arn: str, md5_hash: str, layer_version_str: str
+    args_dict, existing_layer_arn: str, md5_hash: str, layer_version_str: str, dry_run: bool = False
 ):
     """Checks if metadata for an existing layer ARN is in DynamoDB and adds it if missing."""
     subheader("Checking DynamoDB")
     status("Checking metadata", existing_layer_arn)
+
+    # Perform the check even in dry run mode to see if repair *would* be needed
 
     pk = existing_layer_arn
     sk = args_dict["distribution"]
@@ -509,12 +534,12 @@ def check_and_repair_dynamodb(
             if args_dict["runtimes"]
             else None,
         }
-        # Attempt to write the missing record
-        write_success = write_metadata_to_dynamodb(metadata)
+        # Attempt to write the missing record (or simulate in dry run)
+        write_success = write_metadata_to_dynamodb(metadata, dry_run=dry_run)
         if write_success:
-            success("Repair complete")
+            success("Repair complete" if not dry_run else "Dry Run: Repair simulated")
         else:
-            error("Repair failed")
+            error("Repair failed" if not dry_run else "Dry Run: Repair simulation failed")
     elif response:
         info("Metadata exists", "No repair needed")
 
@@ -581,6 +606,12 @@ def env_bool(env_var, default=False):
     default="",
     help="Comma-separated build tags used for the layer",
 )
+@click.option(
+    "--dry-run",
+    type=click.BOOL, # Changed from is_flag=True
+    default=False,
+    help="Perform a dry run without actual publishing (true/false)",
+)
 def main(
     layer_name,
     artifact_name,
@@ -593,10 +624,13 @@ def main(
     collector_version,
     make_public,
     build_tags,
+    dry_run,
 ):
     """AWS Lambda Layer Publisher"""
 
     header("Lambda layer publisher")
+    if dry_run:
+        warning("Dry Run Mode Enabled", "No actual publishing will occur")
 
     # Step 1: Construct layer name
     subheader("Constructing layer name")
@@ -647,12 +681,13 @@ def main(
             arch_str,
             runtimes,
             build_tags=build_tags,
+            dry_run=dry_run, # Pass dry_run flag
         )
         if layer_arn:
-            # Step 5: Make layer public only if explicitly requested
+            # Step 5: Make layer public only if explicitly requested and not in dry run
             public_success = True
             if make_public:
-                public_success = make_layer_public(layer_name, layer_arn, region)
+                public_success = make_layer_public(layer_name, layer_arn, region, dry_run=dry_run) # Pass dry_run
             else:
                 info(
                     "Keeping layer private",
@@ -660,7 +695,7 @@ def main(
                 )
 
             if public_success:
-                # Step 5.5: Write Metadata for NEW layer to DynamoDB
+                # Step 5.5: Write Metadata for NEW layer to DynamoDB (or simulate in dry run)
                 info("Preparing metadata for new layer", "For DynamoDB storage")
                 metadata = {
                     "pk": layer_arn,
@@ -678,8 +713,8 @@ def main(
                     # Store as a list instead of a set for DynamoDB List (L) type
                     "compatible_runtimes": runtimes.split() if runtimes else None,
                 }
-                dynamo_success = write_metadata_to_dynamodb(metadata)
-                if not dynamo_success:
+                dynamo_success = write_metadata_to_dynamodb(metadata, dry_run=dry_run) # Pass dry_run
+                if not dynamo_success and not dry_run: # Only warn if not dry run
                     warning(
                         "Layer published and made public, but failed to write metadata to DynamoDB"
                     )
@@ -702,9 +737,9 @@ def main(
         info(f"Layer with MD5 {md5_hash} already exists", existing_layer_arn)
         layer_arn = existing_layer_arn  # Ensure layer_arn is set to the existing one
 
-        # Check if the metadata for this existing layer is in DynamoDB and repair if needed
+        # Check/repair DynamoDB even in dry run mode to simulate the check
         check_and_repair_dynamodb(
-            args_dict, existing_layer_arn, md5_hash, layer_version_str
+            args_dict, existing_layer_arn, md5_hash, layer_version_str, dry_run=dry_run # Pass dry_run
         )
         # Note: We don't set dynamo_success here, as the goal was just checking/repairing.
         # The summary will correctly reflect 'Reused existing layer'.

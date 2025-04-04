@@ -235,7 +235,8 @@ jobs:
       distribution: ${{ needs.prepare-environment.outputs.distribution }}
       collector-version: ${{ needs.prepare-environment.outputs.collector_version }}
       build-tags: ${{ needs.prepare-environment.outputs.build_tags_string }} # Pass the string
-      make-public: true # Assuming production releases are public
+      make-public: ${{ github.event.inputs.set-to-public }} # Pass input
+      dry-run: ${{ github.event.inputs.dry-run }} # Pass input
     secrets: inherit
 
   # Job 4: Generate Reports
@@ -284,13 +285,14 @@ jobs:
             LAYERS-*.md
           retention-days: 90
 
-  # Job 5: Create GitHub Release
+  # Job 5: Create GitHub Release (Skip if dry-run)
   create-github-release:
     needs:
       - prepare-environment
       - release-layer
       - generate-layers-report
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.dry-run == false }} # Only run if not dry-run
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
