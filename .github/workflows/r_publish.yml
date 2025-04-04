@@ -49,13 +49,13 @@ on:
       make-public:
         description: 'Whether to make the layer publicly accessible'
         required: false
-        type: boolean
-        default: true
+        type: string
+        default: 'false'
       dry-run:
         description: 'Whether to perform a dry run (no actual publishing)'
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: 'false'
     outputs:
       layer_arn:
         description: 'ARN of the published or reused layer'
