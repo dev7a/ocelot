@@ -104,7 +104,7 @@ ARCHITECTURE_CHOICES = ["amd64", "arm64"]
 @click.option(
     "--layer-name",
     "-l",
-    default="otel-ext-layer",
+    default="ocel",
     help="Base name for the Lambda layer.",
 )
 @click.option(

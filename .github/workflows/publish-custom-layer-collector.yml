@@ -60,7 +60,16 @@ on:
         required: false
         type: string
         default: 'prod'
-
+      dry-run:
+        description: 'Dry run the release process. Defaults to "false".'
+        required: false
+        type: boolean
+        default: false
+      set-to-public:
+        description: 'Set the layer to public. Defaults to "true".'
+        required: false
+        type: boolean
+        default: true
 # Add permissions required for OIDC, creating releases, etc.
 permissions:
   id-token: write
@@ -218,7 +227,7 @@ jobs:
       matrix: ${{ fromJSON(needs.prepare-environment.outputs.release_jobs) }}
     with:
       artifact-name: collector-${{ matrix.architecture }}-${{ github.event.inputs.distribution }}.zip
-      layer-name: otel-ext-layer
+      layer-name: ocel
       architecture: ${{ matrix.architecture }}
       runtimes: "nodejs18.x nodejs20.x nodejs22.x java17 java21 python3.9 python3.10 python3.11 python3.12 python3.13 dotnet6 dotnet8 provided.al2 provided.al2023"
       release-group: ${{ needs.prepare-environment.outputs.release_group }}
