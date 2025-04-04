@@ -203,12 +203,12 @@ jobs:
           echo "With release jobs: ${{ needs.prepare-environment.outputs.release_jobs }}"
           mkdir -p ./build
           python tools/scripts/build_extension_layer.py \
-            --upstream-repo ${{ github.event.inputs.upstream-repo }} \
-            --upstream-ref ${{ github.event.inputs.upstream-ref }} \
-            --distribution ${{ github.event.inputs.distribution }} \
-            --arch ${{ matrix.architecture }} \
-            --upstream-version ${{ needs.prepare-environment.outputs.collector_version }} \
-            --build-tags ${{ needs.prepare-environment.outputs.build_tags_string }} \
+            --upstream-repo "${{ github.event.inputs.upstream-repo }}" \
+            --upstream-ref "${{ github.event.inputs.upstream-ref }}" \
+            --distribution "${{ github.event.inputs.distribution }}" \
+            --arch "${{ matrix.architecture }}" \
+            --upstream-version "${{ needs.prepare-environment.outputs.collector_version }}" \
+            --build-tags "${{ needs.prepare-environment.outputs.build_tags_string }}" \
             --output-dir ./build 
 
       - name: Upload Collector Artifact
