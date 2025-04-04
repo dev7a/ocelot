@@ -9,7 +9,7 @@ error reporting, and GitHub environment variable capture.
 import os
 import subprocess
 import tempfile
-from typing import Dict, List, Optional, Tuple, Union, Any
+from typing import Dict, List, Optional, Tuple, Union
 
 from .ui_utils import (
     info,
@@ -21,6 +21,7 @@ from .ui_utils import (
     command_output_block,
 )
 
+
 def run_command(
     cmd: List[str],
     cwd: Optional[str] = None,
@@ -28,9 +29,11 @@ def run_command(
     check: bool = True,
     capture_output: bool = False,
     capture_github_env: bool = False,
-) -> Union[subprocess.CompletedProcess, Tuple[subprocess.CompletedProcess, Dict[str, str]]]:
+) -> Union[
+    subprocess.CompletedProcess, Tuple[subprocess.CompletedProcess, Dict[str, str]]
+]:
     """Run a shell command with enhanced output handling and error reporting.
-    
+
     Args:
         cmd: Command to run as a list of strings
         cwd: Working directory for the command
@@ -38,11 +41,11 @@ def run_command(
         check: Whether to raise an exception on non-zero exit
         capture_output: Whether to capture stdout/stderr instead of streaming
         capture_github_env: Whether to capture GitHub environment variables
-        
+
     Returns:
-        The completed process object, or a tuple of (process, github_env_vars) if 
+        The completed process object, or a tuple of (process, github_env_vars) if
         capture_github_env is True
-    
+
     Raises:
         subprocess.CalledProcessError: If the command returns a non-zero exit code and check is True
     """
@@ -52,12 +55,12 @@ def run_command(
     status("Command", command_str)
     if cwd:
         detail("Directory", cwd)
-    
+
     # Set up environment
     full_env = os.environ.copy()
     if env:
         full_env.update(env)
-    
+
     # Set up GitHub environment files if needed
     github_env_path = None
     github_output_path = None
@@ -66,17 +69,16 @@ def run_command(
         github_env_file = tempfile.NamedTemporaryFile(mode="w+", delete=False)
         github_env_path = github_env_file.name
         github_env_file.close()
-        
+
         github_output_file = tempfile.NamedTemporaryFile(mode="w+", delete=False)
         github_output_path = github_output_file.name
         github_output_file.close()
-        
+
         # Add to environment
-        full_env.update({
-            "GITHUB_ENV": github_env_path,
-            "GITHUB_OUTPUT": github_output_path
-        })
-    
+        full_env.update(
+            {"GITHUB_ENV": github_env_path, "GITHUB_OUTPUT": github_output_path}
+        )
+
     # Run the command
     process = subprocess.run(
         cmd,
@@ -86,10 +88,10 @@ def run_command(
         check=False,  # We'll handle errors ourselves
         capture_output=capture_output,
     )
-    
+
     # Handle the output
     failed = process.returncode != 0
-    
+
     # If we captured output, display it
     if capture_output:
         # First handle the case where the process failed
@@ -98,24 +100,27 @@ def run_command(
             if process.stdout and len(process.stdout.strip()) > 0:
                 info("Output", "")
                 command_output_block(process.stdout)
-            
+
             # Show stderr as an error
             if process.stderr and len(process.stderr.strip()) > 0:
                 error("Error", "")
                 command_output_block(process.stderr, prefix="  | ", max_lines=20)
             elif not process.stderr or len(process.stderr.strip()) == 0:
-                error("Error", f"No error output produced, but command failed with exit code {process.returncode}")
-        
+                error(
+                    "Error",
+                    f"No error output produced, but command failed with exit code {process.returncode}",
+                )
+
         # Process succeeded - show stdout and stderr as regular output
         else:
             has_output = False
-            
+
             # Show stdout if it exists
             if process.stdout and len(process.stdout.strip()) > 0:
                 info("Output", "")
                 command_output_block(process.stdout)
                 has_output = True
-            
+
             # Show stderr as additional output
             if process.stderr and len(process.stderr.strip()) > 0:
                 if has_output:
@@ -124,11 +129,11 @@ def run_command(
                     info("Output (stderr)", "")
                 command_output_block(process.stderr, prefix="  | ", max_lines=20)
                 has_output = True
-            
+
             # Indicate if there was no output at all
             if not has_output:
                 info("Output", "No output produced")
-    
+
     # Show success/failure
     if not failed:
         success("Command completed successfully")
@@ -141,8 +146,11 @@ def run_command(
             stderr=process.stderr if capture_output else None,
         )
     else:
-        warning(f"Command returned non-zero exit code {process.returncode}", "check=False, continuing")
-    
+        warning(
+            f"Command returned non-zero exit code {process.returncode}",
+            "check=False, continuing",
+        )
+
     # Parse GitHub env variables if requested
     if capture_github_env:
         github_env_vars = {}
@@ -170,7 +178,7 @@ def run_command(
                         os.unlink(file_path)
                 except Exception as e:
                     warning(f"Error removing temporary {file_type} file: {e}")
-        
+
         return process, github_env_vars
-    
-    return process 
+
+    return process

@@ -219,7 +219,7 @@ def spinner(text: str, callback: Callable, color: str = "blue") -> Any:
     """
     # Check if running in GitHub Actions
     in_github_actions = os.environ.get("GITHUB_ACTIONS") == "true"
-    
+
     if in_github_actions:
         # Skip spinner in GitHub Actions to avoid cluttering logs
         info("Process", text)
@@ -258,8 +258,9 @@ def property_list(properties: Dict[str, str], title: Optional[str] = None) -> No
         click.secho(f"\n> {title}", fg=COLORS["subheader"])
 
     for key, value in properties.items():
-        click.secho(f">   {key}", fg=COLORS["info"], nl=False)
+        click.secho(f"  - {key}", fg=COLORS["info"], nl=False)
         click.echo(f" | {value}")
+    click.echo()
 
 
 def command_output(command: str, output: Optional[str] = None) -> None:
@@ -280,7 +281,7 @@ def command_output(command: str, output: Optional[str] = None) -> None:
 
 def command_output_block(output: str, prefix: str = "  | ", max_lines: int = None):
     """Display command output in a styled block.
-    
+
     Args:
         output: The command output to display
         prefix: Prefix to use for each line
@@ -288,10 +289,10 @@ def command_output_block(output: str, prefix: str = "  | ", max_lines: int = Non
     """
     if not output:
         return
-        
+
     # Split output into lines
     lines = output.strip().split("\n")
-    
+
     # Handle max_lines limit
     if max_lines and len(lines) > max_lines:
         display_lines = lines[:max_lines]
@@ -299,7 +300,7 @@ def command_output_block(output: str, prefix: str = "  | ", max_lines: int = Non
         display_lines.append(f"... {truncated} more lines truncated ...")
     else:
         display_lines = lines
-    
+
     # Print output block
     click.echo()
     for line in display_lines:
@@ -528,7 +529,7 @@ class StepTracker:
             status = self.status[i]
             symbol = self.symbols[status]
             message = f" - {self.messages[i]}" if self.messages[i] else ""
-            
+
             # Add timing information if applicable
             time_info = ""
             if status == "complete" or status == "failed":
@@ -664,7 +665,7 @@ def debug(message: str) -> None:
 
 def separator(width=80, char="─", title=None):
     """Display a visual separator line, optionally with a title.
-    
+
     Args:
         width: Width of the separator in characters
         char: Character to use for the separator
@@ -675,18 +676,18 @@ def separator(width=80, char="─", title=None):
         title_len = len(title) + 2  # Add 2 for spaces on either side
         if title_len >= width:
             # If title is too long, truncate it
-            title = title[:width-5] + "..."
+            title = title[: width - 5] + "..."
             title_len = len(title) + 2
-            
+
         left_padding = (width - title_len) // 2
         right_padding = width - title_len - left_padding
-        
+
         # Create the separator with title
         sep_line = char * left_padding + f" {title} " + char * right_padding
     else:
         # Create a simple separator
         sep_line = char * width
-        
+
     click.echo()
     click.secho(sep_line, fg=COLORS["info"])
     click.echo()
@@ -694,7 +695,7 @@ def separator(width=80, char="─", title=None):
 
 def summary_box(title: str, items: Dict[str, str], width: int = 80):
     """Display a summary box with a title and key-value pairs.
-    
+
     Args:
         title: Title of the summary box
         items: Dictionary of key-value pairs to display
@@ -702,15 +703,15 @@ def summary_box(title: str, items: Dict[str, str], width: int = 80):
     """
     # Calculate the inner width (accounting for borders and padding)
     inner_width = width - 4  # 2 characters for borders on each side
-    
+
     # Create the border lines
     top_border = "┌" + "─" * (width - 2) + "┐"
     bottom_border = "└" + "─" * (width - 2) + "┘"
-    
+
     # Create title
     title_line = f"│ {title.center(inner_width)} │"
     separator_line = "├" + "─" * (inner_width + 2) + "┤"
-    
+
     # Format each item
     content_lines = []
     for key, value in items.items():
@@ -720,15 +721,19 @@ def summary_box(title: str, items: Dict[str, str], width: int = 80):
             # Wrap the value to fit within the box
             remaining = str(value)
             while remaining:
-                line_content = remaining[:inner_width-2]  # -2 for padding
-                remaining = remaining[inner_width-2:]
-                content_lines.append(f"│   {line_content.ljust(inner_width-2)} │")
+                line_content = remaining[: inner_width - 2]  # -2 for padding
+                remaining = remaining[inner_width - 2 :]
+                content_lines.append(f"│   {line_content.ljust(inner_width - 2)} │")
         else:
-            content_lines.append(f"│ {key}: {value.ljust(inner_width - len(key) - 2)} │")
-    
+            content_lines.append(
+                f"│ {key}: {value.ljust(inner_width - len(key) - 2)} │"
+            )
+
     # Assemble the box
-    box_lines = [top_border, title_line, separator_line] + content_lines + [bottom_border]
-    
+    box_lines = (
+        [top_border, title_line, separator_line] + content_lines + [bottom_border]
+    )
+
     # Display the box
     click.echo()
     for line in box_lines:

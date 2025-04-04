@@ -9,7 +9,7 @@
 # ]
 # ///
 """
-test-distribution-locally.py
+local-build.py
 
 A utility script to build and test custom OpenTelemetry Collector distributions locally.
 This script emulates the refactored GitHub workflow process:
@@ -23,163 +23,51 @@ Features:
 - External commands (git, make) use spinners and only show output on failure
 - Python scripts show full output for debugging
 - Environment variables from child processes are captured using GitHub Actions simulation
+
+Testing Features:
+- Set LOCAL_BUILD_INJECT_ERROR=<function_name> to simulate an error in a specific function:
+  Available functions: clone_repository, determine_upstream_version, determine_build_tags, 
+  build_layer, verify_credentials, publish_layer
 """
 
-import os
-import subprocess
 import sys
-import tempfile
+import time
+import subprocess
+import os
 from pathlib import Path
-import re
-import shutil  # Needed for cleanup
+
 import click
-import time  # Add time for tracking overall execution time
 
-# Import distribution utilities from the scripts directory
-from scripts.otel_layer_utils.distribution_utils import (
+# Add necessary paths to python path for imports to work correctly
+sys.path.insert(0, str(Path(__file__).parent.parent))  # Add repo root
+sys.path.insert(0, str(Path(__file__).parent))  # Add tools directory
+
+# Import from the modular components
+from local_build.exceptions import TerminateApp
+from local_build.config import (
     load_distributions,
-    resolve_build_tags,
-    DistributionError,
+    determine_build_tags,
+    load_distribution_choices,
 )
-from scripts.otel_layer_utils.ui_utils import (
-    header,
-    subheader,
-    status,
-    info,
-    detail,
-    success,
-    error,
-    warning,
-    format_table,
-    StepTracker,
-    set_verbose_mode,
-    debug,
-    format_file_size,
-    separator,
-    format_elapsed_time,
-)
-from scripts.otel_layer_utils.subprocess_utils import run_command
+from local_build.upstream import clone_repository, cleanup_temp_dir
+from local_build.build import build_layer
+from local_build.publish import publish_layer
+from local_build.report import generate_summary
+from local_build.context import BuildContext
 
+# Import from the UI utilities
+from scripts.otel_layer_utils.ui_utils import separator, set_verbose_mode, StepTracker, info, warning
 
-class TerminateApp(Exception):
-    """Exception raised to signal application termination with an error code."""
-    def __init__(self, message="Application terminated", exit_code=1):
-        self.message = message
-        self.exit_code = exit_code
-        super().__init__(self.message)
+# Check for error injection environment variable
+error_target = os.environ.get("LOCAL_BUILD_INJECT_ERROR")
+if error_target:
+    warning(f"Error injection enabled for function: {error_target}")
+    info("Test Mode", "Will simulate failure in the specified function")
 
-
-def is_python_script(cmd):
-    """Check if the command is a Python script."""
-    if len(cmd) < 2:
-        return False
-    # Check if the command is running python and a script
-    return (cmd[0].endswith("python") or cmd[0].endswith("python3")) and cmd[
-        1
-    ].endswith(".py")
-
-
-def check_aws_credentials():
-    """Check if AWS credentials are configured correctly."""
-    try:
-        # Import boto3 (should be available as it's in the script requirements)
-        import boto3
-
-        # Create a boto3 STS client
-        sts_client = boto3.client("sts")
-
-        # Call get_caller_identity directly using boto3
-        response = sts_client.get_caller_identity()
-
-        # Extract account ID from response
-        account_id = response.get("Account")
-        if account_id:
-            success("AWS credentials are configured", f"Account: {account_id}")
-            return True
-        else:
-            warning(
-                "AWS credentials are configured but account ID couldn't be determined."
-            )
-            return False
-
-    except ImportError:
-        error("boto3 is not installed", "Please install it: pip install boto3")
-        return False
-    except Exception as e:
-        error("AWS credentials are not configured correctly", str(e))
-        return False
-
-
-def get_aws_region():
-    """Get the current AWS region from boto3 session."""
-    try:
-        import boto3
-
-        # Get the region from the default session
-        session = boto3.session.Session()
-        region = session.region_name
-
-        if region:
-            return region
-        else:
-            # Don't fallback, require configuration
-            error("Could not determine AWS region from boto3 session.")
-            detail(
-                "Hint", "Configure region via AWS_REGION env var or 'aws configure'."
-            )
-            raise TerminateApp("Could not determine AWS region")
-    except Exception as e:
-        error("Error getting AWS region", str(e))
-        raise TerminateApp("Failed to get AWS region")
-
-
-def load_distribution_choices():
-    """
-    Load distribution choices from config/distributions.yaml.
-    
-    Returns:
-        tuple: (distribution_choices, distributions_data)
-        
-    Raises:
-        TerminateApp: If distributions cannot be loaded
-    """
-    distribution_choices = []
-    distributions_data = {}
-    
-    try:
-        repo_root = Path().cwd()
-        dist_yaml_path = repo_root / "config" / "distributions.yaml"
-        
-        # Attempt to load distributions data
-        distributions_data = load_distributions(dist_yaml_path)
-        
-        # If successful, populate choices
-        distribution_choices = sorted(list(distributions_data.keys()))
-        success("Loaded distribution choices", ", ".join(distribution_choices))
-        
-        # Fail fast if loaded data is empty or invalid
-        if not distribution_choices or not distributions_data:
-            raise ValueError("Distributions config file loaded but appears empty or invalid.")
-            
-        return distribution_choices, distributions_data
-        
-    except FileNotFoundError:
-        error(f"Fatal Error: Distributions config file not found at {dist_yaml_path}")
-        raise TerminateApp(f"Distributions config file not found at {dist_yaml_path}")
-    except Exception as e:
-        # Catch other errors during loading/parsing (e.g., YAMLError, ValueError)
-        error(
-            f"Fatal Error: Could not load distributions from config file {dist_yaml_path}",
-            str(e),
-        )
-        raise TerminateApp(f"Failed to load distributions: {str(e)}")
-
-
+# Load distribution choices
 DISTRIBUTION_CHOICES, _distributions_data = load_distribution_choices()
 ARCHITECTURE_CHOICES = ["amd64", "arm64"]
 
-# Load distribution choices
-header("Loading distributions")
 
 @click.command(
     context_settings=dict(
@@ -256,15 +144,25 @@ def main(
     # Enable verbose mode if requested
     set_verbose_mode(verbose)
 
-    # Set up paths
-    repo_root = Path(__file__).parent.parent.resolve()
-    build_dir = repo_root / "build"
-    build_dir.mkdir(exist_ok=True)
-    scripts_dir = repo_root / "tools" / "scripts"  # Scripts are in tools/scripts
+    # Create build context
+    context = BuildContext(
+        distribution=distribution,
+        architecture=architecture,
+        upstream_repo=upstream_repo,
+        upstream_ref=upstream_ref,
+        layer_name=layer_name,
+        runtimes=runtimes,
+        skip_publish=skip_publish,
+        verbose=verbose,
+        public=public,
+        keep_temp=keep_temp,
+    )
 
-    temp_upstream_dir = None  # Initialize
-    upstream_version = None
-    build_tags_string = None
+    # Ensure build directory exists
+    context.build_dir.mkdir(exist_ok=True)
+
+    # Set start time in context
+    context.start_time = start_time
 
     # Setup a step tracker for the main build process
     separator(title="Build Process")
@@ -278,303 +176,65 @@ def main(
     tracker = StepTracker(build_steps, title="Build Process Steps")
 
     try:
-        # --- Step 0: Prepare Environment (Corresponds to 'prepare-environment' job) ---
-        separator(title="Prepare Environment")
-        header("Prepare environment")
+        # --- Step 0: Load Distribution Configuration ---
+        context = load_distributions(context)
 
-        # --- Sub-step: Clone Upstream Repo ---
-        subheader("Cloning repository")
-        tracker.start_step(0)  # Start the clone step
-        temp_upstream_dir = tempfile.mkdtemp(prefix="otel-upstream-")
-        temp_upstream_path = Path(temp_upstream_dir)
-        status("Target repo", f"{upstream_repo}@{upstream_ref}")
-        info("Temp directory", temp_upstream_dir)
-        repo_url = f"https://github.com/{upstream_repo}.git"
-        run_command(
-            [
-                "git",
-                "clone",
-                "--depth",
-                "1",
-                "--branch",
-                upstream_ref,
-                repo_url,
-                str(temp_upstream_path),
-            ],
-            capture_output=True,
-        )
-        tracker.complete_step(0, "Repository cloned successfully")
+        # --- Step 1: Clone Upstream Repository and Determine Version ---
+        context = clone_repository(context, tracker)
 
-        # Determine Version
-        upstream_collector_dir = temp_upstream_path / "collector"
-        upstream_makefile = upstream_collector_dir / "Makefile"
-        upstream_version_file = upstream_collector_dir / "VERSION"
-        upstream_version = None
+        # --- Step 2: Determine Build Tags ---
+        context = determine_build_tags(context, tracker)
 
-        if not upstream_makefile.exists():
-            error("Makefile not found", f"{upstream_makefile}")
-            detail("Detail", "Cannot determine version via make")
-            tracker.fail_step(1, "Makefile not found")
-            raise TerminateApp("Makefile not found")
+        # --- Step 3: Build Layer ---
+        context = build_layer(context, tracker)
 
-        subheader("Determining version")
-        tracker.start_step(1)
-        debug(f"Looking for Makefile at {upstream_makefile}")
-        run_command(
-            ["make", "set-otelcol-version"],
-            cwd=str(upstream_collector_dir),
-            capture_output=True,
-        )
+        # --- Step 4: Publish Layer (if not skipped) ---
+        if not context.skip_publish:
+            from local_build.aws import verify_credentials
 
-        if not upstream_version_file.is_file():
-            error("VERSION file not created", f"{upstream_version_file}")
-            tracker.fail_step(1, "VERSION file not created")
-            raise TerminateApp("VERSION file not created")
+            context = verify_credentials(context, tracker)
+            context = publish_layer(context, tracker)
 
-        with open(upstream_version_file, "r") as vf:
-            upstream_version = vf.read().strip()
+        # --- Step 5: Generate Summary Report ---
+        generate_summary(context, start_time)
 
-        if not upstream_version:
-            error("VERSION file is empty", f"{upstream_version_file}")
-            tracker.fail_step(1, "VERSION file is empty")
-            raise TerminateApp("VERSION file is empty")
-        success("Determined Upstream Version", upstream_version)
-        tracker.complete_step(1, f"Version: {upstream_version}")
-
-        # --- Sub-step: Determine Build Tags String (Locally) ---
-        subheader("Determining build tags")
-        tracker.start_step(2)
-        build_tags_string = ""
-        try:
-            # _distributions_data was loaded above when setting choices
-            if not _distributions_data:  # Check if loading failed earlier
-                error("Cannot resolve build tags", "Distributions data failed to load")
-                tracker.fail_step(2, "Distributions data failed to load")
-                raise TerminateApp("Distributions data failed to load")
-            buildtags_list = resolve_build_tags(distribution, _distributions_data)
-            build_tags_string = ",".join(filter(None, buildtags_list))
-            success("Determined build tags", build_tags_string)
-            tracker.complete_step(2, f"Tags: {build_tags_string}")
-        except DistributionError as e:
-            error(
-                f"Error resolving build tags for distribution '{distribution}'", str(e)
-            )
-            tracker.fail_step(2, str(e))
-            raise TerminateApp(f"Error resolving build tags: {str(e)}")
-        except Exception as e:
-            error("An unexpected error occurred resolving build tags", str(e))
-            tracker.fail_step(2, str(e))
-            raise TerminateApp(f"An unexpected error occurred resolving build tags: {str(e)}")
-
-        # --- Step 1: Build Collector Layer (Corresponds to 'build-layer' job) ---
-        separator(title="Build Layer")
-        header(f"Build layer ({architecture})")
-        tracker.start_step(3)  # Start the build step
-
-        build_script = scripts_dir / "build_extension_layer.py"
-        subheader("Running build script")
-        build_cmd = [
-            sys.executable,
-            str(build_script),
-            "--upstream-repo",
-            upstream_repo,
-            "--upstream-ref",
-            upstream_ref,
-            # Distribution determines build tags, layer naming, and is used for DynamoDB metadata
-            "--distribution",
-            distribution,
-            "--arch",
-            architecture,
-            "--output-dir",
-            str(build_dir),
-            # Pass version and tags as command line arguments
-            "--upstream-version",
-            upstream_version,
-            "--build-tags",
-            build_tags_string,
-        ]
-
-        # Run build script (don't capture output by default, let it stream)
-        run_command(build_cmd)
-
-        layer_file = build_dir / f"collector-{architecture}-{distribution}.zip"
-        if not layer_file.exists():
-            error("Expected layer file not found after build", f"{layer_file}")
-            tracker.fail_step(3, "Layer file not found")
-            raise TerminateApp("Layer file not found")
-
-        # Get file size
-        file_size = os.path.getsize(layer_file)
-        formatted_size = format_file_size(file_size)
+    except TerminateApp as e:
+        # Display the error message if it hasn't been displayed yet
+        from scripts.otel_layer_utils.ui_utils import error
+        error("Process terminated", e.message)
         
-        success("Build successful", f"{layer_file} ({formatted_size})")
-        tracker.complete_step(3, f"Layer built: {layer_file.name} ({formatted_size})")
+        # Update the tracker if step information is provided
+        if (
+            hasattr(e, "step_index")
+            and e.step_index is not None
+            and hasattr(e, "step_message")
+            and e.step_message is not None
+        ):
+            tracker.fail_step(e.step_index, e.step_message)
 
-        if skip_publish:
-            info("Skipping publish step", "Publishing not requested")
-            tracker.complete_step(4, "Skipped (not requested)")
-            
-            # Add summary at the end
-            separator(title="Build Summary")
-            
-            # Calculate total elapsed time
-            total_elapsed = time.time() - start_time
-            
-            # Create summary table using the format_table function
-            headers = ["Property", "Value"]
-            rows = [
-                ["Distribution", distribution],
-                ["Architecture", architecture],
-                ["Layer File", str(layer_file)],
-                ["File Size", formatted_size],
-                ["Total Duration", format_elapsed_time(total_elapsed)],
-                ["Publishing", "Skipped"],
-            ]
-            format_table(headers, rows, title="Build Completion Summary")
-            return
-
-        # Check AWS credentials before publishing
-        # --- Step 2: Publish Layer (Corresponds to 'release-layer' job using reusable workflow) ---
-        separator(title="Publish Layer")
-        header(f"Publish layer ({architecture})")
-        tracker.start_step(4)  # Start the publish step
-
-        # --- Sub-step: Check AWS Credentials ---
-        subheader("Checking AWS credentials")
-        if not check_aws_credentials():
-            error("AWS credentials check failed", "Skipping publish step")
-            detail("Hint", "Run 'aws configure' or set AWS environment variables")
-            tracker.fail_step(4, "AWS credentials check failed")
-            raise TerminateApp("AWS credentials check failed")
-
-        # --- Sub-step: Get AWS Region ---
-        subheader("Determining AWS region")
-        region = get_aws_region()
-        success("Target AWS Region", region)
-
-        # --- Sub-step: Prepare Publish Environment ---
-        subheader("Preparing for publish")
-
-        # Print debug info if verbose
-        if verbose:
-            info("Debug info", "Publishing with parameters:")
-            detail("Layer name", layer_name)
-            detail("Artifact", str(layer_file))
-            detail("Region", region)
-            detail("Architecture", architecture)
-            detail("Runtimes", runtimes)
-            detail("Release group", "local")
-            detail("Distribution", distribution)
-            detail("Collector version", upstream_version)
-            detail("Build tags", build_tags_string)
-            detail("Make public", str(public).lower())
-
-        # --- Sub-step: Execute Publish Script ---
-        subheader("Publishing layer")
-        publisher_script = scripts_dir / "lambda_layer_publisher.py"
-
-        # Build command with all arguments including build-tags
-        publish_cmd = [
-            sys.executable,
-            str(publisher_script),
-            "--layer-name",
-            layer_name,
-            "--artifact-name",
-            str(layer_file),
-            "--region",
-            region,
-            "--architecture",
-            architecture,
-            "--runtimes",
-            runtimes,
-            "--release-group",
-            "local",  # Always use 'local' for testing
-            "--distribution",
-            distribution,
-            "--collector-version",
-            upstream_version,
-            "--make-public",
-            str(public).lower(),
-            "--build-tags",
-            build_tags_string,
-        ]
-
-        publish_result, github_env = run_command(
-            publish_cmd,
-            capture_github_env=True,
-            capture_output=False,  # Don't capture output since this script uses spinners
-        )
-
-        # Display layer information from GitHub environment variables or stdout
-        layer_arn = github_env.get("layer_arn")
-        if not layer_arn:
-            # Fallback: Try to extract from stdout
-            arn_match = re.search(
-                r"Published Layer ARN: (arn:aws:lambda:[^:]+:[^:]+:layer:[^:]+:[0-9]+)",
-                publish_result.stdout,
-            )
-            if arn_match:
-                layer_arn = arn_match.group(1)
-
-        if layer_arn:
-            subheader("Layer published")
-            status("Layer ARN", layer_arn)
-            tracker.complete_step(4, f"Layer ARN: {layer_arn}")
-        else:
-            warning("Publish step completed, but could not determine final Layer ARN")
-            tracker.complete_step(4, "Published successfully (ARN unknown)")
-
-        success(
-            f"Published {distribution} distribution to region {region} as a 'local' release"
-        )
-        info(
-            "Next steps",
-            "You can now test this layer by attaching it to a Lambda function",
-        )
-        
-        # Add summary at the end
-        separator(title="Build Summary")
-        
-        # Calculate total elapsed time
-        total_elapsed = time.time() - start_time
-        
-        # Create summary table using the format_table function
-        headers = ["Property", "Value"]
-        rows = [
-            ["Distribution", distribution],
-            ["Architecture", architecture],
-            ["Layer File", str(layer_file)],
-            ["File Size", formatted_size],
-            ["Total Duration", format_elapsed_time(total_elapsed)],
-        ]
-        
-        # Add ARN if available
-        if layer_arn:
-            rows.append(["Layer ARN", layer_arn])
-            
-        format_table(headers, rows, title="Build Completion Summary")
-
+        # Exit with the provided error code
+        sys.exit(e.exit_code)
     except subprocess.CalledProcessError:
         # Error message should have been printed by run_command
+        from scripts.otel_layer_utils.ui_utils import error
+
         error("An error occurred during execution")
-        raise TerminateApp("An error occurred during execution")
+        sys.exit(1)
     except Exception as e:
+        from scripts.otel_layer_utils.ui_utils import error
+
         error("An unexpected error occurred", str(e))
-        raise TerminateApp(f"An unexpected error occurred: {str(e)}")
-    finally:  # Correct indentation relative to try
-        # Cleanup temporary upstream directory (Correct indentation relative to finally)
-        if temp_upstream_dir and Path(temp_upstream_dir).exists():
-            if keep_temp:
-                info("Keeping temporary upstream clone", temp_upstream_dir)
-            else:
-                subheader("Cleaning up")
-                status("Removing temporary upstream clone", temp_upstream_dir)
-                shutil.rmtree(temp_upstream_dir)
+        sys.exit(1)
+    finally:
+        # Cleanup temporary upstream directory
+        cleanup_temp_dir(context)
 
 
 if __name__ == "__main__":
     try:
         main()
     except TerminateApp as e:
-        # The error has already been logged by the error() function where the exception was raised
+        # Display the error if not already displayed
+        from scripts.otel_layer_utils.ui_utils import error
+        error("Process terminated", e.message)
         sys.exit(e.exit_code)

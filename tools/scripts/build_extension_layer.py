@@ -90,55 +90,62 @@ def get_build_tags_list(distribution: str, distributions_data: dict) -> list[str
         raise  # Re-raise the exception
 
 
-def resolve_components_by_tags(active_build_tags: list[str], dependency_mappings: dict) -> list[str]:
+def resolve_components_by_tags(
+    active_build_tags: list[str], dependency_mappings: dict
+) -> list[str]:
     """
     Determine which components should be included based on active build tags.
     Handles hierarchical tag resolution (e.g., 'all' tags).
-    
+
     Args:
         active_build_tags: List of active build tags
         dependency_mappings: Dictionary mapping component tags to dependencies
-        
+
     Returns:
         List of component tags that should be included
     """
     included_components = []
-    
+
     # Check for hierarchical tag resolution
     has_global_all = "lambdacomponents.all" in active_build_tags
-    
+
     # Identify categories with 'all' tags
     category_all_tags = {}
     for tag in active_build_tags:
         if tag.endswith(".all") and tag != "lambdacomponents.all":
             category = tag.rsplit(".", 1)[0]  # e.g., 'lambdacomponents.connector'
             category_all_tags[category] = True
-    
+
     # Determine which components should be included
     for component_tag in dependency_mappings.keys():
         should_include = False
-        
+
         # Direct match with active tag
         if component_tag in active_build_tags:
             should_include = True
             detail("Including component", f"Direct match: {component_tag}")
-        
+
         # Global "all" tag includes everything
         elif has_global_all:
             should_include = True
             detail("Including component", f"Via global 'all' tag: {component_tag}")
-        
+
         # Category "all" tag includes components in that category
         else:
             for category in category_all_tags:
-                if component_tag.startswith(f"{category}.") and not component_tag.endswith(".all"):
+                if component_tag.startswith(
+                    f"{category}."
+                ) and not component_tag.endswith(".all"):
                     should_include = True
-                    detail("Including component", f"Via category 'all' tag: {component_tag} from {category}.all")
+                    detail(
+                        "Including component",
+                        f"Via category 'all' tag: {component_tag} from {category}.all",
+                    )
                     break
-        
+
         if should_include:
             included_components.append(component_tag)
-    
+
     return included_components
 
 
@@ -151,7 +158,7 @@ def selective_copy_components(
     """
     Selectively copy only the components that match our active build tags.
     Handles hierarchical tag resolution (e.g., 'all' tags).
-    
+
     Returns a list of component tags that were included.
     """
     if not component_dir.is_dir():
@@ -160,20 +167,25 @@ def selective_copy_components(
             "Proceeding without overlay",
         )
         return []
-    
+
     subheader("Selecting components to overlay")
-    
+
     # Use common helper to determine which components to include
-    included_components = resolve_components_by_tags(active_build_tags, dependency_mappings)
-    
+    included_components = resolve_components_by_tags(
+        active_build_tags, dependency_mappings
+    )
+
     # If no components to include, we're done
     if not included_components:
         info("No components to overlay", "Based on active build tags")
         return []
-    
+
     # Now copy only the selected components
-    status("Copying selected components", f"Included: {len(included_components)} components")
-    
+    status(
+        "Copying selected components",
+        f"Included: {len(included_components)} components",
+    )
+
     # Map of component tag prefixes to directory paths
     component_type_dirs = {
         "lambdacomponents.connector": "connector",
@@ -182,10 +194,10 @@ def selective_copy_components(
         "lambdacomponents.receiver": "receiver",
         "lambdacomponents.extension": "extension",
     }
-    
+
     # Track what was actually copied
     copied_components = []
-    
+
     # Copy base/common files first (if they exist)
     common_dir = component_dir / "common"
     if common_dir.is_dir():
@@ -193,7 +205,7 @@ def selective_copy_components(
         upstream_common_dir.mkdir(parents=True, exist_ok=True)
         shutil.copytree(common_dir, upstream_common_dir, dirs_exist_ok=True)
         success("Copied common files", f"From {common_dir} to {upstream_common_dir}")
-    
+
     # Copy each component type directory if needed
     for component_tag in included_components:
         # Extract the component type (e.g., 'connector', 'exporter')
@@ -201,62 +213,72 @@ def selective_copy_components(
         if len(component_parts) < 3:
             warning(f"Invalid component tag format: {component_tag}", "Skipping")
             continue
-        
+
         component_type_prefix = f"{component_parts[0]}.{component_parts[1]}"
         component_name = component_parts[2]
-        
+
         # Get the directory name for this component type
         if component_type_prefix not in component_type_dirs:
             warning(f"Unknown component type: {component_type_prefix}", "Skipping")
             continue
-        
+
         component_type_dir = component_type_dirs[component_type_prefix]
-        
+
         # Source and destination paths
         source_type_dir = component_dir / component_type_dir
         if not source_type_dir.is_dir():
-            warning(f"Component type directory not found: {source_type_dir}", "Skipping")
+            warning(
+                f"Component type directory not found: {source_type_dir}", "Skipping"
+            )
             continue
-        
+
         # Copy specific component files
         # For *.all components, we copy everything in the directory
         if component_name == "all":
-            dest_type_dir = upstream_dir / "collector" / "lambdacomponents" / component_type_dir
+            dest_type_dir = (
+                upstream_dir / "collector" / "lambdacomponents" / component_type_dir
+            )
             dest_type_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # Copy all files in this component type directory
             shutil.copytree(source_type_dir, dest_type_dir, dirs_exist_ok=True)
-            success(f"Copied all {component_type_dir} components", 
-                   f"From {source_type_dir} to {dest_type_dir}")
+            success(
+                f"Copied all {component_type_dir} components",
+                f"From {source_type_dir} to {dest_type_dir}",
+            )
             copied_components.append(component_tag)
         else:
             # Look for specific component file(s)
             # Common naming patterns: component_name.go, component_name_factory.go, etc.
             component_files = list(source_type_dir.glob(f"*{component_name}*.go"))
-            
+
             if not component_files:
                 warning(f"No files found for component: {component_tag}", "Skipping")
                 continue
-            
+
             # Create destination directory
-            dest_type_dir = upstream_dir / "collector" / "lambdacomponents" / component_type_dir
+            dest_type_dir = (
+                upstream_dir / "collector" / "lambdacomponents" / component_type_dir
+            )
             dest_type_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # Copy each file individually
             for file in component_files:
                 dest_file = dest_type_dir / file.name
                 shutil.copy2(file, dest_file)
                 detail("Copied file", f"{file.name}")
-            
-            success(f"Copied {component_name} component files", 
-                   f"To {dest_type_dir}")
+
+            success(f"Copied {component_name} component files", f"To {dest_type_dir}")
             copied_components.append(component_tag)
-    
+
     if copied_components:
-        success("Component overlay complete", f"Included {len(copied_components)} components")
+        success(
+            "Component overlay complete",
+            f"Included {len(copied_components)} components",
+        )
     else:
         warning("No components were copied", "Check component directory structure")
-    
+
     return copied_components
 
 
@@ -278,8 +300,10 @@ def add_dependencies(
     # Use common helper to determine which components to include
     status("Determining required dependencies", "Based on active build tags")
     modules_to_add = set()  # Use a set to avoid duplicate modules
-    components_to_include = resolve_components_by_tags(active_build_tags, dependency_mappings)
-    
+    components_to_include = resolve_components_by_tags(
+        active_build_tags, dependency_mappings
+    )
+
     # Add dependencies for each component
     for component_tag in components_to_include:
         modules = dependency_mappings.get(component_tag)
@@ -307,7 +331,7 @@ def add_dependencies(
             if upstream_version.startswith("v")
             else f"v{upstream_version}"
         )
-        
+
         # Check if we have any dependencies to add
         if modules_to_add:
             # First, analyze go.mod to understand existing dependencies
@@ -316,26 +340,31 @@ def add_dependencies(
                 go_mod_path = collector_dir / "go.mod"
                 with open(go_mod_path, "r") as f:
                     go_mod_content = f.read()
-                    status("Read go.mod file", f"{len(go_mod_content.splitlines())} lines")
+                    status(
+                        "Read go.mod file", f"{len(go_mod_content.splitlines())} lines"
+                    )
             except Exception as e:
                 warning("Could not read go.mod file", str(e))
                 go_mod_content = ""
-                
+
             # Add dependencies using go mod edit for more precise control
-            status("Using go mod edit to add dependencies", f"{len(modules_to_add)} modules")
+            status(
+                "Using go mod edit to add dependencies",
+                f"{len(modules_to_add)} modules",
+            )
             success_count = 0
             failure_count = 0
-            
+
             for module_path in modules_to_add:
                 versioned_module = f"{module_path}@{version_tag}"
                 status("Adding dependency", versioned_module)
-                
+
                 try:
                     # Use go mod edit for a more controlled approach
                     run_command(
-                        ["go", "mod", "edit", f"-require={versioned_module}"], 
+                        ["go", "mod", "edit", f"-require={versioned_module}"],
                         cwd=str(collector_dir),
-                        capture_output=True
+                        capture_output=True,
                     )
                     success_count += 1
                     success(f"Added dependency {versioned_module}")
@@ -345,25 +374,31 @@ def add_dependencies(
                         f"Error: {e.stderr if hasattr(e, 'stderr') else str(e)}",
                     )
                     failure_count += 1
-            
+
             # Summary of dependency addition
             if success_count > 0:
                 success(f"Successfully added {success_count} dependencies")
             if failure_count > 0:
                 warning(f"Failed to add {failure_count} dependencies")
-                
+
             # Run go mod tidy once at the end to resolve all dependencies
             if success_count > 0:
                 status("Running", "go mod tidy to resolve dependencies")
                 try:
-                    tidy_result = run_command(["go", "mod", "tidy"], cwd=str(collector_dir), capture_output=True)
+                    run_command(
+                        ["go", "mod", "tidy"],
+                        cwd=str(collector_dir),
+                        capture_output=True,
+                    )
                     success("Dependency resolution completed successfully")
                 except subprocess.CalledProcessError as e:
                     error(
                         "Failed running 'go mod tidy'",
                         e.stderr if hasattr(e, "stderr") else str(e),
                     )
-                    detail("Continuing with build process", "The build may still succeed")
+                    detail(
+                        "Continuing with build process", "The build may still succeed"
+                    )
             else:
                 warning("No dependencies were successfully added")
                 detail("Action", "Skipping 'go mod tidy'")
@@ -423,14 +458,23 @@ def add_dependencies(
     "--build-tags",
     help="Comma-separated list of build tags",
 )
-def main(upstream_repo, upstream_ref, distribution, arch, output_dir, keep_temp, upstream_version, build_tags):
+def main(
+    upstream_repo,
+    upstream_ref,
+    distribution,
+    arch,
+    output_dir,
+    keep_temp,
+    upstream_version,
+    build_tags,
+):
     """Build Custom OpenTelemetry Collector Lambda Layer."""
 
-    # --- Get Version and Build Tags from arguments or environment (for backward compatibility) ---
+    # Get Version and Build Tags from arguments or environment (for backward compatibility)
     # Prioritize command-line arguments over environment variables
     if not upstream_version:
         upstream_version = os.environ.get("UPSTREAM_VERSION")
-    
+
     if not build_tags:
         build_tags_string = os.environ.get("BUILD_TAGS_STRING")
     else:
@@ -442,7 +486,10 @@ def main(upstream_repo, upstream_ref, distribution, arch, output_dir, keep_temp,
             "UPSTREAM_VERSION not provided",
             "Either pass with --upstream-version or set UPSTREAM_VERSION environment variable",
         )
-        detail("Info", "This variable should be set by the calling GitHub workflow or CLI argument")
+        detail(
+            "Info",
+            "This variable should be set by the calling GitHub workflow or CLI argument",
+        )
         sys.exit(1)
 
     # Build tags string is needed for the 'make package' env var.
@@ -455,7 +502,7 @@ def main(upstream_repo, upstream_ref, distribution, arch, output_dir, keep_temp,
         ]  # Handle empty tags from split
     # We will rely on the workflow passing the correct tags; local resolution is removed for simplicity
 
-    # --- Setup Paths and Load Configs ---
+    # Setup Paths and Load Configs
     output_dir = Path(output_dir).resolve() if output_dir else Path.cwd()
     output_dir.mkdir(parents=True, exist_ok=True)
 

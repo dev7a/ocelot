@@ -66,7 +66,7 @@ def write_item(item: Dict, region: str = None) -> Dict:
 
     Args:
         item: Item to write (must contain pk and sk)
-        region: Optional AWS region for DynamoDB. 
+        region: Optional AWS region for DynamoDB.
                 If not provided, boto3 will use the region from environment variables or AWS config.
 
     Returns:
@@ -140,9 +140,7 @@ def delete_item(pk: str, region: str = None) -> bool:
     return status_code == 200
 
 
-def query_by_distribution(
-    distribution: str, region: str = None
-) -> List[Dict]:
+def query_by_distribution(distribution: str, region: str = None) -> List[Dict]:
     """
     Query items by distribution using the GSI.
 
@@ -189,7 +187,7 @@ def scan_items(filter_expression=None, region: str = None) -> List[Dict]:
         filter_expression: Optional DynamoDB filter expression
         region: Optional AWS region for DynamoDB.
                 If not provided, boto3 will use the region from environment variables or AWS config.
-                
+
     Returns:
         List[Dict]: List of items from the scan
 

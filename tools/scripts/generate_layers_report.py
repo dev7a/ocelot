@@ -25,7 +25,6 @@ from otel_layer_utils.dynamodb_utils import (
     scan_items,
 )
 
-# Known distributions to query (should match what's used as PK)
 DISTRIBUTIONS = [
     "default",
     "minimal",
@@ -35,12 +34,7 @@ DISTRIBUTIONS = [
     "custom",
 ]
 
-# Known architectures to group by
 ARCHITECTURES = ["amd64", "arm64", "unknown"]  # Add unknown as fallback
-
-
-# --- Removed functions that parse names or call Lambda API ---
-# get_distribution, get_architecture, get_version, check_aws_cli, fetch_layers
 
 
 def fetch_layers_from_dynamodb(pattern: str = None) -> List[Dict]:
