@@ -1,9 +1,11 @@
 # OTel Collector Extension Layers. 
 Powered by an ocelot. Obviously.
 
-This repository contains customizations for OpenTelemetry Collector Lambda Layers, building upon the [OpenTelemetry Lambda](https://github.com/open-telemetry/opentelemetry-lambda) project. It uses an "overlay" approach to maintain custom components while staying in sync with upstream changes.
+**ocel-otron** is a customizable build system for creating AWS Lambda Extension Layers powered by the OpenTelemetry Collector. Pick and bake only the components you need — observability à la carte.
 
 ## Overview
+
+This repository contains customizations for OpenTelemetry Collector Lambda Layers, building upon the [OpenTelemetry Lambda](https://github.com/open-telemetry/opentelemetry-lambda) project. It uses an "overlay" approach to maintain custom components while staying in sync with upstream changes.
 
 Instead of maintaining a direct fork of the OpenTelemetry Lambda repository (which would lead to complex merge conflicts), this repository contains only custom components and workflow definitions. During the build process, it:
 
@@ -12,6 +14,31 @@ Instead of maintaining a direct fork of the OpenTelemetry Lambda repository (whi
 3. Builds and publishes custom Lambda layers with the extended functionality
 
 This approach allows us to stay current with upstream changes while maintaining our custom integrations.
+
+## Deployment Options
+
+You have several options for building and deploying the Lambda layers:
+
+1. **Local Build**: Build layers locally and publish them to your own AWS account
+2. **Contribute**: Submit a PR to this repository to publish layers as public resources
+3. **Fork**: Fork this repository and configure the build workflow to create your own private layers
+
+Choose the approach that best fits your organization's needs and security requirements.
+
+### Local Build
+
+To build layers locally, you'll need the following prerequisites:
+
+1. Go programming language (latest stable version) - [Install Go](https://go.dev/doc/install)
+2. The `uv` package manager from [uv.dev](https://docs.astral.sh/uv/getting-started/installation/)
+
+Once you have these dependencies installed, simply run:
+
+```bash
+ uv run tools/local-build.py --distribution minimal
+ ```
+
+This will build the `minimal` layer, save it to the build directory, and publish it to your own AWS account.
 
 ## Custom Components
 
