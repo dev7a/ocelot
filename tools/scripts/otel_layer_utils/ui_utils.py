@@ -77,11 +77,6 @@ def _format_heading_case(text: str) -> str:
     return text
 
 
-# ==========================================================================================
-# Header and Section functions
-# ==========================================================================================
-
-
 def header(text: str) -> None:
     """Display a main section header.
 
@@ -112,11 +107,6 @@ def subheader(text: str) -> None:
         fg=COLORS["header"],
         bold=True,
     )
-
-
-# ==========================================================================================
-# Status message functions
-# ==========================================================================================
 
 
 def status(text: str, value: str) -> None:
@@ -201,11 +191,6 @@ def warning(text: str, details: Optional[str] = None) -> None:
         click.echo(f"{STYLE_CONFIG['separator']}{details}")
 
 
-# ==========================================================================================
-# Progress indicator functions
-# ==========================================================================================
-
-
 def spinner(text: str, callback: Callable, color: str = "blue") -> Any:
     """Run a function with a spinner and return its result.
 
@@ -240,11 +225,6 @@ def spinner(text: str, callback: Callable, color: str = "blue") -> Any:
         except Exception as e:
             sp.stop()
             raise e
-
-
-# ==========================================================================================
-# Table and structured output functions
-# ==========================================================================================
 
 
 def property_list(properties: Dict[str, str], title: Optional[str] = None) -> None:
@@ -308,11 +288,6 @@ def command_output_block(output: str, prefix: str = "  | ", max_lines: int = Non
     click.echo()
 
 
-# ==========================================================================================
-# GitHub Actions specific utilities
-# ==========================================================================================
-
-
 def github_summary_table(properties: Dict[str, str], title: str) -> str:
     """Generate a Markdown table for GitHub job summaries.
 
@@ -334,11 +309,6 @@ def github_summary_table(properties: Dict[str, str], title: str) -> str:
         summary.append(f"| {key} | {formatted_value} |")
 
     return "\n".join(summary)
-
-
-# ==========================================================================================
-# Additional Formatting Utilities
-# ==========================================================================================
 
 
 def format_table(
@@ -597,11 +567,6 @@ class StepTracker:
         if 0 <= index < len(self.steps):
             self.messages[index] = message
             self._render()
-
-
-# ==========================================================================================
-# Logging and Debug Utilities
-# ==========================================================================================
 
 
 def log(message: str, level: str = "info", verbose_only: bool = False) -> None:

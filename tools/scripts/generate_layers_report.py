@@ -140,7 +140,6 @@ def generate_report(
 ):
     """
     Generate a markdown report from the processed layer information.
-    (Signature and core logic remain largely the same)
     """
     with open(output_file, "w") as f:
         f.write("# OpenTelemetry Lambda Layers Report\n")

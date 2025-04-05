@@ -497,7 +497,6 @@ def check_and_repair_dynamodb(
     status("Checking metadata", existing_layer_arn)
 
     # Perform the check even in dry run mode to see if repair *would* be needed
-
     pk = existing_layer_arn
     sk = args_dict["distribution"]
 
@@ -731,7 +730,7 @@ def main(
             )
             sys.exit(1)  # Exit if publish fails
 
-    # --- Logic for skipped publish ---
+    # Logic for skipped publish
     elif skip_publish and existing_layer_arn:
         subheader("Reusing existing layer")
         info(f"Layer with MD5 {md5_hash} already exists", existing_layer_arn)
@@ -743,8 +742,6 @@ def main(
         )
         # Note: We don't set dynamo_success here, as the goal was just checking/repairing.
         # The summary will correctly reflect 'Reused existing layer'.
-
-    # --- End of skipped publish logic ---
 
     # Set layer_arn output for GitHub Actions
     if layer_arn:

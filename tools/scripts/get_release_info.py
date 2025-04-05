@@ -30,19 +30,8 @@ from otel_layer_utils.distribution_utils import (
     DistributionError,
 )
 
-# Get Github Output file path
-GITHUB_OUTPUT_FILE = os.environ.get("GITHUB_OUTPUT")
 
-# Check if we're running in GitHub Actions
-if not GITHUB_OUTPUT_FILE:
-    print(
-        "Error: GITHUB_OUTPUT environment variable not set. This script must run in GitHub Actions.",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-
-# --- Get inputs from environment variables - Fail Fast ---
+# Get inputs from environment variables - Fail Fast
 distribution = os.environ.get("DISTRIBUTION")
 collector_version = os.environ.get("INPUT_COLLECTOR_VERSION")
 release_group = os.environ.get("RELEASE_GROUP")
@@ -70,7 +59,7 @@ print(f"Input Collector Version: {collector_version}")
 print(f"Input Release Group: {release_group}")
 print(f"Distribution Yaml Path: {yaml_path}")
 
-# --- Determine Build Tags - Fail Fast ---
+# Determine Build Tags
 build_tags = ""
 try:
     distributions_data = load_distributions(yaml_path)
@@ -91,17 +80,17 @@ except Exception as e:  # Catch any other unexpected errors during tag resolutio
 
 print(f"Determined Build Tags: '{build_tags}'")  # Quote for clarity if empty
 
-# --- Determine Release Tag and Title ---
+# Determine Release Tag and Title
 # Clean collector version for tag/name (remove 'v' prefix)
 version_tag_part = collector_version.lstrip("v")
 # Always include release group in tag and title
 release_tag = f"{distribution}-v{version_tag_part}-{release_group}"
-release_title = f"Release: distribution: {distribution} | version: {version_tag_part} | group: {release_group}"
+release_title = f"{distribution} | {version_tag_part} | {release_group}"
 
 print(f"Release Tag: {release_tag}")
 print(f"Release Title: {release_title}")
 
-# --- Set GitHub Actions outputs ---
+# Set GitHub Actions outputs
 print("\nSetting GitHub Actions outputs...")
 set_github_output("tag", release_tag)
 set_github_output("title", release_title)

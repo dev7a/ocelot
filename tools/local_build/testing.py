@@ -47,4 +47,4 @@ def inject_error(step_index: Optional[int] = None, step_message: Optional[str] =
             # Normal execution if not injecting error
             return func(*args, **kwargs)
         return wrapper
-    return decorator 
+    return decorator

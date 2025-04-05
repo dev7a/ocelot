@@ -101,7 +101,7 @@ def verify_credentials(context: BuildContext, tracker) -> BuildContext:
     Raises:
         TerminateApp: If credentials or region check fails
     """
-    # --- Sub-step: Check AWS Credentials ---
+    # Sub-step: Check AWS Credentials
     subheader("Checking AWS credentials")
     if not check_aws_credentials():
         error("AWS credentials check failed", "Skipping publish step")
@@ -112,7 +112,7 @@ def verify_credentials(context: BuildContext, tracker) -> BuildContext:
             step_message="AWS credentials check failed",
         )
 
-    # --- Sub-step: Get AWS Region ---
+    # Sub-step: Get AWS Region
     subheader("Determining AWS region")
     region = get_aws_region()
     success("Target AWS Region", region)

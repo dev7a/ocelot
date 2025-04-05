@@ -47,7 +47,7 @@ def publish_layer(context: BuildContext, tracker) -> BuildContext:
     header(f"Publish layer ({context.architecture})")
     tracker.start_step(4)
 
-    # --- Sub-step: Prepare Publish Environment ---
+    # Sub-step: Prepare Publish Environment
     subheader("Preparing for publish")
 
     # Print debug info if verbose
@@ -64,7 +64,7 @@ def publish_layer(context: BuildContext, tracker) -> BuildContext:
         detail("Build tags", context.build_tags_string)
         detail("Make public", str(context.public).lower())
 
-    # --- Sub-step: Execute Publish Script ---
+    # Sub-step: Execute Publish Script
     subheader("Publishing layer")
     publisher_script = context.scripts_dir / "lambda_layer_publisher.py"
 
