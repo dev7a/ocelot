@@ -88,8 +88,8 @@ def generate_notes(distribution: str, collector_version: str, build_tags: str):
             "No matching layers found in the metadata store for this specific version and distribution.\n"
         )
     else:
-        body_lines.append("| Region | Architecture | Layer ARN |")
-        body_lines.append("|--------|--------------|-----------|")
+        body_lines.append("| Region/Architecture | Layer ARN |")
+        body_lines.append("|-----------------------|-----------|")
         # Sort for consistent output (Region, then Architecture)
         sorted_items = sorted(
             filtered_items,
@@ -99,7 +99,7 @@ def generate_notes(distribution: str, collector_version: str, build_tags: str):
             region = item.get("region", "N/A")
             arch = item.get("architecture", "N/A")
             arn = item.get("layer_arn", "N/A")
-            body_lines.append(f"| {region} | {arch} | `{arn}` |")
+            body_lines.append(f"| {region}/{arch} | `{arn}` |")
 
     # Join lines with literal newline character for GitHub notes
     return "\n".join(body_lines)
