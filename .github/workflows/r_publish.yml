@@ -24,8 +24,12 @@ on:
         required: true
         default: dev
         type: string
-      aws_region:
+      aws-region:
         description: 'Publish to which AWS region?'
+        required: true
+        type: string
+      dynamodb-region:
+        description: 'Region of the DynamoDB table'
         required: true
         type: string
       layer-version:
@@ -105,7 +109,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.OTEL_LAMBDA_LAYER_PUBLISH_ROLE_ARN }}
           role-duration-seconds: 1200
-          aws-region: ${{ inputs.aws_region }}
+          aws-region: ${{ inputs.aws-region }}
           mask-aws-account-id: false
 
       - name: Publish Lambda Layer
@@ -118,7 +122,8 @@ jobs:
           python3 tools/scripts/lambda_layer_publisher.py \
             --layer-name "${{ inputs.layer-name }}" \
             --artifact-name "${{ inputs.artifact-name }}" \
-            --region "${{ inputs.aws_region }}" \
+            --region "${{ inputs.aws-region }}" \
+            --dynamodb-region "${{ inputs.dynamodb-region }}" \
             --architecture "${{ inputs.architecture }}" \
             --runtimes "${{ inputs.runtimes }}" \
             --release-group "${{ inputs.release-group }}" \

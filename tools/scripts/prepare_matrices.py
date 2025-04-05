@@ -63,7 +63,7 @@ def main(architecture, aws_region):
         regions = [aws_region]
 
     # Create release matrix
-    release_matrix = {"architecture": architectures, "aws_region": regions}
+    release_matrix = {"architecture": architectures, "aws-region": regions}
 
     # Print the matrices for debug
     click.echo(f"Build matrix: {json.dumps(build_matrix)}")

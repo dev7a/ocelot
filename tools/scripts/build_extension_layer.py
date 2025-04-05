@@ -38,7 +38,6 @@ DEFAULT_UPSTREAM_REPO = "open-telemetry/opentelemetry-lambda"
 DEFAULT_UPSTREAM_REF = "main"
 DEFAULT_DISTRIBUTION = "default"
 DEFAULT_ARCHITECTURE = "amd64"
-# REMOVED: DEFAULT_FALLBACK_VERSION
 
 
 def load_component_dependencies(yaml_path: Path) -> dict:

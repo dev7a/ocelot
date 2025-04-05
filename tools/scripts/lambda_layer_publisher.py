@@ -380,7 +380,7 @@ def make_layer_public(layer_name: str, layer_arn: str, region: str, dry_run: boo
         return False
 
 
-def write_metadata_to_dynamodb(metadata: dict, dry_run: bool = False) -> bool:
+def write_metadata_to_dynamodb(dynamodb_region: str, metadata: dict, dry_run: bool = False) -> bool:
     """Write the collected layer metadata to the DynamoDB table."""
     subheader("Writing metadata")
     status("Target table", DYNAMODB_TABLE_NAME)
@@ -411,7 +411,7 @@ def write_metadata_to_dynamodb(metadata: dict, dry_run: bool = False) -> bool:
 
     def write_to_dynamo():
         try:
-            response = write_item(metadata)
+            response = write_item(metadata, region=dynamodb_region)
             return response
         except ValueError as e:
             error("Validation Error", str(e))
@@ -490,7 +490,7 @@ def create_github_summary(
 
 
 def check_and_repair_dynamodb(
-    args_dict, existing_layer_arn: str, md5_hash: str, layer_version_str: str, dry_run: bool = False
+    dynamodb_region: str, args_dict, existing_layer_arn: str, md5_hash: str, layer_version_str: str, dry_run: bool = False
 ):
     """Checks if metadata for an existing layer ARN is in DynamoDB and adds it if missing."""
     subheader("Checking DynamoDB")
@@ -534,7 +534,7 @@ def check_and_repair_dynamodb(
             else None,
         }
         # Attempt to write the missing record (or simulate in dry run)
-        write_success = write_metadata_to_dynamodb(metadata, dry_run=dry_run)
+        write_success = write_metadata_to_dynamodb(dynamodb_region, metadata, dry_run=dry_run)
         if write_success:
             success("Repair complete" if not dry_run else "Dry Run: Repair simulated")
         else:
@@ -567,6 +567,11 @@ def env_bool(env_var, default=False):
     "--region",
     required=True,
     help="AWS region to publish the layer",
+)
+@click.option(
+    "--dynamodb-region",
+    required=True,
+    help="AWS region with the dynamodb to record the publishing",
 )
 @click.option(
     "--architecture",
@@ -615,6 +620,7 @@ def main(
     layer_name,
     artifact_name,
     region,
+    dynamodb_region,
     architecture,
     runtimes,
     release_group,
@@ -712,7 +718,7 @@ def main(
                     # Store as a list instead of a set for DynamoDB List (L) type
                     "compatible_runtimes": runtimes.split() if runtimes else None,
                 }
-                dynamo_success = write_metadata_to_dynamodb(metadata, dry_run=dry_run) # Pass dry_run
+                dynamo_success = write_metadata_to_dynamodb(dynamodb_region, metadata, dry_run=dry_run) # Pass dry_run
                 if not dynamo_success and not dry_run: # Only warn if not dry run
                     warning(
                         "Layer published and made public, but failed to write metadata to DynamoDB"
@@ -738,7 +744,7 @@ def main(
 
         # Check/repair DynamoDB even in dry run mode to simulate the check
         check_and_repair_dynamodb(
-            args_dict, existing_layer_arn, md5_hash, layer_version_str, dry_run=dry_run # Pass dry_run
+            dynamodb_region, args_dict, existing_layer_arn, md5_hash, layer_version_str, dry_run=dry_run # Pass dry_run
         )
         # Note: We don't set dynamo_success here, as the goal was just checking/repairing.
         # The summary will correctly reflect 'Reused existing layer'.
