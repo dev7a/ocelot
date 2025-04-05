@@ -223,6 +223,7 @@ jobs:
     needs: 
       - prepare-environment
       - build-layer
+    if: ${{ github.event.inputs.dry-run != 'true' }}
     strategy:
       matrix: ${{ fromJSON(needs.prepare-environment.outputs.release_jobs) }}
     with:
@@ -241,7 +242,8 @@ jobs:
 
   # Job 4: Generate Reports
   generate-layers-report:
-    needs: release-layer # Depends on successful layer publishing
+    needs: release-layer
+    if: ${{ github.event.inputs.dry-run != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -292,7 +294,7 @@ jobs:
       - release-layer
       - generate-layers-report
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.dry-run != 'true' }} # Only run if not dry-run
+    if: ${{ github.event.inputs.dry-run != 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
