@@ -56,17 +56,17 @@ on:
         type: string
         default: 'main'
       release-group:
-        description: 'Release group (e.g., prod, beta, alpha). Affects release naming. Defaults to "prod".'
+        description: 'Release group (e.g., prod, beta, alpha)'
         required: false
         type: string
         default: 'prod'
       dry-run:
-        description: 'Dry run the release process. Defaults to "false".'
+        description: 'Dry run the release process'
         required: false
         type: boolean
         default: false
       set-to-public:
-        description: 'Set the layer to public. Defaults to "true".'
+        description: 'Set the layer to public'
         required: false
         type: boolean
         default: true
@@ -292,7 +292,7 @@ jobs:
       - release-layer
       - generate-layers-report
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.dry-run == false }} # Only run if not dry-run
+    if: ${{ github.event.inputs.dry-run != 'true' }} # Only run if not dry-run
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
