@@ -287,31 +287,8 @@ The following diagrams illustrate the system's workflow for both automated (GitH
 
 ### GitHub Actions Workflow
 
-```mermaid
-flowchart TD
-    A["Manual Trigger"] --> B["Prepare Environment"];
+![image](https://github.com/user-attachments/assets/c1d9c276-ecea-49f3-ba61-5f19590a7402)
 
-    %% Parallel build jobs
-    B --> C1["Build Layer - Arch 1"];
-    B --> C2["Build Layer - Arch 2"];
-    B --> Cn["Build Layer - Arch N"];
-
-    %% Parallel release jobs depend on build jobs
-    C1 --> D1["Release Layer - Arch 1, Region"];
-    C2 --> D2["Release Layer - Arch 2, Region"];
-    Cn --> Dn["Release Layer - Arch N, Region"];
-
-    %% All releases converge to reports
-    D1 --> E["Generate Reports"];
-    D2 --> E;
-    Dn --> E;
-
-    E --> F["Create GitHub Release"];
-
-    %% Styling
-    classDef job fill:#e1e1ff,stroke:#333,stroke-width:1px;
-    class A,B,C1,C2,Cn,D1,D2,Dn,E,F job;
-```
 
 This diagram illustrates the **automated publishing workflow** using GitHub Actions:
 
@@ -326,24 +303,7 @@ This automation enables multi-architecture, multi-region publishing with minimal
 
 ### Local Development Workflow
 
-```mermaid
-flowchart TD
-    A[Local CLI Command] --> B(Load Distribution Config);
-    B --> C(Clone Upstream Repo);
-    C --> D(Determine Upstream Version);
-    D --> E(Determine Build Tags);
-    E --> F(Build Layer);
-    F --> G{Skip Publish?};
-    G -- No --> H(Publish Layer);
-    G -- Yes --> I[Skip Publishing];
-    H --> J(Generate Summary);
-    I --> J;
-    J --> K(Cleanup Temp Files);
-
-    %% Styling
-    classDef step fill:#e1e1ff,stroke:#333,stroke-width:1px;
-    class A,B,C,D,E,F,G,H,I,J,K step;
-```
+![image](https://github.com/user-attachments/assets/e9f827cb-9186-4c28-bdc6-68617b394738)
 
 This diagram illustrates the **local build and publish workflow** when running the Ocelot CLI tool:
 
