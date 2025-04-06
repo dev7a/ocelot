@@ -129,12 +129,14 @@ Extend **ocelot** with your own components and distributions:
     ```
     These tags control when your component is compiled into the collector based on the selected distribution.
 3.  **Declare Go Dependencies (If Required):** If your component relies on external Go modules not present in the upstream project, declare them in `config/component_dependencies.yaml` using the component's specific build tag as the key:
+
     ```yaml
     dependencies:
       # ... existing entries ...
       lambdacomponents.processor.myprocessor:
         - github.com/dependency-org/dependency-repo/v1
     ```
+
     The build script (`tools/local_build/build.py`) will automatically fetch these dependencies using `go get`.
 4.  **Add Documentation:** Create a markdown file (e.g., `docs/myprocessor.md`) detailing the configuration and usage of your component.
 5.  **Update README:** List your new component in the "Current Custom Components" section below.
@@ -143,6 +145,7 @@ Extend **ocelot** with your own components and distributions:
 
 1.  **Modify Configuration:** Edit `config/distributions.yaml`.
 2.  **Add Definition:** Define your new distribution, potentially inheriting from a base:
+
     ```yaml
     base-standard:
       description: "Common components"
@@ -158,6 +161,7 @@ Extend **ocelot** with your own components and distributions:
         # Add only the additional tags needed
         - lambdacomponents.processor.myprocessor
     ```
+    
 3.  **Update Workflow File:** Manually add the new distribution name (`analytics-focused`) to the `options` list for the `distribution` input in the `.github/workflows/publish-custom-layer-collector.yml` file to make it selectable in the GitHub Actions UI.
 4.  **Update README:** Include your new distribution in the "Understanding Distributions" table.
 
