@@ -13,11 +13,11 @@ Like its namesake, **OCELOT** is small, fast, and sharp. This project offers a c
 - [Understanding Distributions](#understanding-distributions)
 - [Customization Guide](#customization-guide)
 - [Current Custom Components](#current-custom-components)
+- [Architecture](#architecture)
 - [Using the Ocelot Local Build Tool](#using-the-ocelot-local-build-tool)
 - [Managing and Cleaning Up Lambda Layers](#managing-and-cleaning-up-lambda-layers)
 - [Contributing](#contributing)
 - [Setting Up Your Fork for Automated Publishing](#setting-up-your-fork-for-automated-publishing)
-- [Architecture Overview](#architecture-overview)
 - [License](#license)
 
 ## Overview: The Overlay Approach
@@ -168,6 +168,52 @@ Extend **ocelot** with your own components and distributions:
 *   **SignalToMetrics Connector**: Converts signal data (e.g., spans) into metrics. (`components/collector/lambdacomponents/connector/signaltometricsconnector.go`)
 *   *(Your custom component could be listed here!)*
 
+## Architecture
+
+The build system for Ocelot integrates multiple layers of tooling to streamline the creation and deployment of custom OpenTelemetry Lambda Layers. At its core, it leverages the upstream [OpenTelemetry Lambda](https://github.com/open-telemetry/opentelemetry-lambda) project's Makefile, which orchestrates the compilation of the OpenTelemetry Collector as a Go binary. This Makefile handles tasks such as cleaning previous builds, embedding version and Git metadata via linker flags, and packaging the resulting binary into a Lambda-compatible zip archive. The Go build process itself uses specific build tags to include or exclude components, enabling highly customizable collector builds tailored for serverless environments.
+
+Complementing this, Ocelot introduces a suite of Python scripts and libraries that automate and extend the upstream build process. These Python tools handle cloning the upstream repository, applying overlays of custom Go components, resolving build tags based on user-selected distributions, and managing AWS interactions such as publishing Lambda layers across multiple regions. They provide a flexible CLI (`tools/ocelot.py`) that abstracts away the complexity of manual Makefile invocation, environment setup, and AWS CLI commands. This layered approach allows developers to rapidly iterate on custom components, automate multi-region publishing, and maintain alignment with upstream changes—all without directly modifying the upstream build system.
+
+### Build and Deployment Workflows
+
+The following diagrams illustrate the system's workflow for both automated (GitHub Actions) and local builds.
+
+### GitHub Actions Workflow
+
+![image](https://github.com/user-attachments/assets/c1d9c276-ecea-49f3-ba61-5f19590a7402)
+
+
+This diagram illustrates the **automated publishing workflow** using GitHub Actions:
+
+- The process starts with a **manual trigger** of the workflow.
+- The environment is prepared, including setting up AWS credentials and build parameters.
+- Multiple **parallel build jobs** are launched, each targeting a specific architecture (e.g., `amd64`, `arm64`).
+- After building, **parallel release jobs** publish the built Lambda layers to the specified AWS regions.
+- All release jobs converge to a step that **generates reports** summarizing the published layers.
+- Finally, a **GitHub Release** is created or updated with the new layer artifacts and metadata.
+
+This automation enables multi-architecture, multi-region publishing with minimal manual intervention.
+
+### Local Development Workflow
+
+![image](https://github.com/user-attachments/assets/e9f827cb-9186-4c28-bdc6-68617b394738)
+
+This diagram illustrates the **local build and publish workflow** when running the Ocelot CLI tool:
+
+- The process begins with a **local CLI command** invocation.
+- The tool **loads the distribution configuration** to determine which components and build tags to use.
+- It **clones the upstream OpenTelemetry Lambda repository** at the specified version or branch.
+- The tool **determines the upstream version** to ensure compatibility.
+- It **resolves the build tags** based on the selected distribution.
+- The OpenTelemetry Collector is **built locally** with the overlayed custom components.
+- The workflow then checks whether to **skip publishing**:
+  - If **No**, it **publishes the built Lambda layer** to the configured AWS regions.
+  - If **Yes**, it skips publishing.
+- A **summary report** is generated, detailing the build and publish results.
+- Finally, **temporary files and directories are cleaned up**.
+
+This process allows rapid local iteration and testing before automating publishing via GitHub Actions.
+
 ## Using the Ocelot Local Build Tool
 
 The `tools/ocelot.py` script is the primary CLI utility for building and optionally publishing Lambda layers.
@@ -281,45 +327,6 @@ To enable GitHub Actions in your fork to publish layers to your own AWS account,
 
 Detailed instructions and the necessary CloudFormation template are provided in the [**OIDC Setup Guide (oidc/README.md)**](./oidc/README.md).
 
-## Architecture Overview
-
-The following diagrams illustrate the system's workflow for both automated (GitHub Actions) and local builds.
-
-### GitHub Actions Workflow
-
-![image](https://github.com/user-attachments/assets/c1d9c276-ecea-49f3-ba61-5f19590a7402)
-
-
-This diagram illustrates the **automated publishing workflow** using GitHub Actions:
-
-- The process starts with a **manual trigger** of the workflow.
-- The environment is prepared, including setting up AWS credentials and build parameters.
-- Multiple **parallel build jobs** are launched, each targeting a specific architecture (e.g., `amd64`, `arm64`).
-- After building, **parallel release jobs** publish the built Lambda layers to the specified AWS regions.
-- All release jobs converge to a step that **generates reports** summarizing the published layers.
-- Finally, a **GitHub Release** is created or updated with the new layer artifacts and metadata.
-
-This automation enables multi-architecture, multi-region publishing with minimal manual intervention.
-
-### Local Development Workflow
-
-![image](https://github.com/user-attachments/assets/e9f827cb-9186-4c28-bdc6-68617b394738)
-
-This diagram illustrates the **local build and publish workflow** when running the Ocelot CLI tool:
-
-- The process begins with a **local CLI command** invocation.
-- The tool **loads the distribution configuration** to determine which components and build tags to use.
-- It **clones the upstream OpenTelemetry Lambda repository** at the specified version or branch.
-- The tool **determines the upstream version** to ensure compatibility.
-- It **resolves the build tags** based on the selected distribution.
-- The OpenTelemetry Collector is **built locally** with the overlayed custom components.
-- The workflow then checks whether to **skip publishing**:
-  - If **No**, it **publishes the built Lambda layer** to the configured AWS regions.
-  - If **Yes**, it skips publishing.
-- A **summary report** is generated, detailing the build and publish results.
-- Finally, **temporary files and directories are cleaned up**.
-
-This process allows rapid local iteration and testing before automating publishing via GitHub Actions.
 
 ## License
 
