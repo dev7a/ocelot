@@ -1,6 +1,9 @@
-# OTel Collector Extension Layers Optimization Toolkit
+# OCELOT  
+> The **O**penTelemetry **C**ollector **E**xtension **L**ayer **O**ptimization **T**oolkit  
+> *A fast, flexible way to build custom Lambda Extension Layers.*
 
-Inspired by the sleek efficiency of its namesake, this project provides a customizable build system for creating AWS Lambda Extension Layers powered by the OpenTelemetry Collector. It builds upon the excellent work of the OpenTelemetry Lambda team, particularly leveraging their build tag system. If you need to add custom components to your Lambda observability stack without the complexities of maintaining a direct fork of the upstream `open-telemetry/opentelemetry-lambda` repository, **ocelot** offers a streamlined solution.
+Like its namesake, **OCELOT** is small, fast, and sharp. This project offers a customizable build system for AWS Lambda Extension Layers powered by the OpenTelemetry Collector. It leverages the excellent build tag system from the [OpenTelemetry Lambda project](https://github.com/open-telemetry/opentelemetry-lambda), making it easy to add custom observability components without forking or maintaining upstream code.
+
 
 ## Table of Contents
 
