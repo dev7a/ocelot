@@ -19,7 +19,7 @@ def inject_error(step_index: Optional[int] = None, step_message: Optional[str] =
     
     Example:
         To test a failure in clone_repository:
-        $ LOCAL_BUILD_INJECT_ERROR=clone_repository uv run tools/local-build.py
+        $ LOCAL_BUILD_INJECT_ERROR=clone_repository uv run tools/ocelot.py
     """
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)

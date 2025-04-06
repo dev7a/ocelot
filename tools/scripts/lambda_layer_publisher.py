@@ -420,7 +420,7 @@ def write_metadata_to_dynamodb(dynamodb_region: str, metadata: dict, dry_run: bo
             error_code = e.response.get("Error", {}).get("Code")
             if error_code == "ResourceNotFoundException":
                 error("AWS Error", str(e))
-                detail("Detail", "Table not found in us-east-1")
+                detail(f"Detail", f"Table not found in {dynamodb_region}")
             elif error_code == "AccessDeniedException":
                 error("AWS Error", str(e))
                 detail("Detail", "Access denied - check IAM permissions")

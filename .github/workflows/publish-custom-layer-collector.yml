@@ -266,7 +266,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.OTEL_LAMBDA_LAYER_PUBLISH_ROLE_ARN }}
           role-duration-seconds: 1200
-          aws-region: us-east-1
+          aws-region: ${{ vars.DYNAMODB_REGION }}
           mask-aws-account-id: false
 
       - name: Generate Layers Report

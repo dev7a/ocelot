@@ -47,6 +47,7 @@ class BuildContext:
         self.layer_file_size: Optional[int] = None
         self.layer_arn: Optional[str] = None
         self.aws_region: Optional[str] = None
+        self.dynamodb_region: Optional[str] = None
         self.start_time = None
 
     def set_temp_dir(self, temp_dir: str) -> None:
@@ -77,3 +78,10 @@ class BuildContext:
     def set_aws_region(self, region: str) -> None:
         """Set the AWS region."""
         self.aws_region = region
+
+    def set_dynamodb_region(self, region: str) -> None:
+        """Set the DynamoDB region."""
+        from scripts.otel_layer_utils.ui_utils import detail
+        if self.verbose:
+            detail("Setting DynamoDB region", f"region={region}")
+        self.dynamodb_region = region

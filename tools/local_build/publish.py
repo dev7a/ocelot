@@ -36,6 +36,9 @@ def publish_layer(context: BuildContext, tracker) -> BuildContext:
     Raises:
         TerminateApp: If publishing fails
     """
+    if context.verbose:
+        info("Function call", f"publish_layer started with aws_region={context.aws_region}, dynamodb_region={context.dynamodb_region}")
+    
     # Check if we should skip publishing
     if context.skip_publish:
         info("Skipping publish step", "Publishing not requested")
@@ -56,6 +59,7 @@ def publish_layer(context: BuildContext, tracker) -> BuildContext:
         detail("Layer name", context.layer_name)
         detail("Artifact", str(context.layer_file))
         detail("Region", context.aws_region)
+        detail("DynamoDB Region", str(context.dynamodb_region))
         detail("Architecture", context.architecture)
         detail("Runtimes", context.runtimes)
         detail("Release group", "local")
@@ -78,6 +82,8 @@ def publish_layer(context: BuildContext, tracker) -> BuildContext:
         str(context.layer_file),
         "--region",
         context.aws_region,
+        "--dynamodb-region",
+        context.dynamodb_region,
         "--architecture",
         context.architecture,
         "--runtimes",

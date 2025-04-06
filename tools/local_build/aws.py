@@ -1,7 +1,7 @@
 """AWS utilities for the local build process."""
 
 
-from scripts.otel_layer_utils.ui_utils import success, warning, error, detail, subheader
+from scripts.otel_layer_utils.ui_utils import success, warning, error, detail, subheader, info
 from .context import BuildContext
 from typing import Optional, Tuple
 from .exceptions import TerminateApp
@@ -101,6 +101,9 @@ def verify_credentials(context: BuildContext, tracker) -> BuildContext:
     Raises:
         TerminateApp: If credentials or region check fails
     """
+    if context.verbose:
+        info("Function call", "verify_credentials started")
+    
     # Sub-step: Check AWS Credentials
     subheader("Checking AWS credentials")
     if not check_aws_credentials():
@@ -118,6 +121,11 @@ def verify_credentials(context: BuildContext, tracker) -> BuildContext:
     success("Target AWS Region", region)
 
     # Update the context with the AWS region
+    if context.verbose:
+        info("Region values before update", f"aws_region={context.aws_region}, dynamodb_region={context.dynamodb_region}")
     context.set_aws_region(region)
+    context.set_dynamodb_region(region)
+    if context.verbose:
+        info("Region values after update", f"aws_region={context.aws_region}, dynamodb_region={context.dynamodb_region}")
 
     return context

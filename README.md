@@ -1,351 +1,363 @@
-# OTel Collector Extension Layers. 
-Powered by an ocelot. Obviously.
+# OTel Collector Extension Layers Optimization Toolkit
 
-**ocel-otron** is a customizable build system for creating AWS Lambda Extension Layers powered by the OpenTelemetry Collector. Pick and bake only the components you need — observability à la carte.
+Inspired by the sleek efficiency of its namesake, this project provides a customizable build system for creating AWS Lambda Extension Layers powered by the OpenTelemetry Collector. It builds upon the excellent work of the OpenTelemetry Lambda team, particularly leveraging their build tag system. If you need to add custom components to your Lambda observability stack without the complexities of maintaining a direct fork of the upstream `open-telemetry/opentelemetry-lambda` repository, **ocelot** offers a streamlined solution.
 
-## Overview
+## Table of Contents
 
-This repository contains customizations for OpenTelemetry Collector Lambda Layers, building upon the [OpenTelemetry Lambda](https://github.com/open-telemetry/opentelemetry-lambda) project. It uses an "overlay" approach to maintain custom components while staying in sync with upstream changes.
+- [Overview: The Overlay Approach](#overview-the-overlay-approach)
+- [Build and Deployment Options](#build-and-deployment-options)
+- [Getting Started: Local Build](#getting-started-local-build)
+- [Understanding Distributions](#understanding-distributions)
+- [Customization Guide](#customization-guide)
+- [Current Custom Components](#current-custom-components)
+- [Using the Ocelot Local Build Tool](#using-the-ocelot-local-build-tool)
+- [Managing and Cleaning Up Lambda Layers](#managing-and-cleaning-up-lambda-layers)
+- [Contributing](#contributing)
+- [Setting Up Your Fork for Automated Publishing](#setting-up-your-fork-for-automated-publishing)
+- [Architecture Overview](#architecture-overview)
+- [License](#license)
 
-Instead of maintaining a direct fork of the OpenTelemetry Lambda repository (which would lead to complex merge conflicts), this repository contains only custom components and workflow definitions. During the build process, it:
+## Overview: The Overlay Approach
 
-1. Clones the upstream OpenTelemetry Lambda repository
-2. Overlays our custom components on top
-3. Builds and publishes custom Lambda layers with the extended functionality
+Maintaining a fork of a rapidly evolving upstream project like OpenTelemetry Lambda can lead to significant maintenance overhead and merge conflicts. **Ocelot** employs an **overlay** strategy, made possible by the upstream project's Go build tag system, to circumvent these issues. Instead of forking, this repository contains only the custom components and the necessary build configurations.
 
-This approach allows us to stay current with upstream changes while maintaining our custom integrations.
+The build process works as follows:
 
-## Deployment Options
+1.  **Clone Upstream:** Fetches the specified version of the `open-telemetry/opentelemetry-lambda` repository.
+2.  **Apply Overlay:** Copies the custom Go components defined within this repository (`components/collector/lambdacomponents/`) into the appropriate directories of the cloned upstream source code.
+3.  **Build Collector:** Compiles the OpenTelemetry Collector using the upstream project's Go build tag system, guided by the tags derived from the selected ocelot distribution, incorporating both standard and custom components.
+4.  **Package Layer:** Creates a `.zip` archive suitable for deployment as an AWS Lambda Layer.
+5.  **Publish (Optional):** Uploads the layer to specified AWS regions and records metadata.
 
-You have several options for building and deploying the Lambda layers:
+This approach allows for seamless integration of custom functionality while staying synchronized with upstream developments, significantly reducing maintenance efforts.
 
-1. **Local Build**: Build layers locally and publish them to your own AWS account
-2. **Contribute**: Submit a PR to this repository to publish layers as public resources
-3. **Fork**: Fork this repository and configure the build workflow to create your own private layers
+## Build and Deployment Options
 
-Choose the approach that best fits your organization's needs and security requirements.
+Choose the method that best suits your workflow and requirements:
 
-### Local Build
+1.  **Use Pre-built Layers:** Find layers for various distributions published in the [Releases](https://github.com/dev7a/ocelot/releases) section of this repository. This is the simplest way to use standard or common custom distributions.
+2.  **Local Build:** Compile and publish layers directly from your local machine to your AWS account. Ideal for testing custom components, development, or managing private layers not intended for public release.
+3.  **Fork and Use GitHub Actions:** Fork this repository to create your own private build system. Configure the GitHub Actions workflow within your fork with your AWS credentials (using OIDC and secrets) for secure, automated publishing of *your* custom layers to *your* AWS account. See the "Setting Up Your Fork for Automated Publishing" section for details.
 
-To build layers locally, you'll need the following prerequisites:
+## Getting Started: Local Build
 
-1. Go programming language (latest stable version) - [Install Go](https://go.dev/doc/install)
-2. The `uv` package manager from [uv.dev](https://docs.astral.sh/uv/getting-started/installation/)
+To build layers locally, ensure you have the following prerequisites installed:
 
-Once you have these dependencies installed, simply run:
+1.  **Go:** The latest stable version. ([Installation Guide](https://go.dev/doc/install))
+2.  **uv:** A fast Python package manager. ([Installation Guide](https://docs.astral.sh/uv/getting-started/installation/))
+3.  **AWS Credentials:** Configured for programmatic access (e.g., via `~/.aws/credentials`, environment variables, or IAM role).
+
+**Build Steps:**
 
 ```bash
- uv run tools/local-build.py --distribution minimal
- ```
+# Navigate to the ocelot project directory
+# Set up a virtual environment and install dependencies
+uv venv
+source .venv/bin/activate # Linux/macOS
+# .venv\Scripts\activate # Windows
+uv pip install -r tools/requirements.txt
 
-This will build the `minimal` layer, save it to the build directory, and publish it to your own AWS account.
+# Execute the local build script
+# Specify the desired distribution (e.g., minimal, default, clickhouse, full)
+uv run tools/ocelot.py --distribution minimal
+```
 
-## Custom Components
+This command performs the clone, overlay, build, and packaging steps for the `minimal` distribution and `amd64` architecture by default. It saves the resulting `.zip` file in the `build/` directory and publishes the layer to your configured default AWS region.
 
-Currently, the repository includes the following custom components:
-
-- **ClickHouse Exporter**: Exports telemetry data to ClickHouse databases ([documentation](docs/clickhouse.md))
-
-## Available Distributions
-
-This repository can build several predefined distributions:
-
-- `default`: Standard OpenTelemetry Collector with receivers, exporters, processors, and extensions (but no connectors)
-- `minimal`: A minimal distribution with just OTLP receivers and batch processors
-- `clickhouse`: Distribution with ClickHouse exporter capabilities (inherits from `minimal`)
-- `full`: Complete distribution with all available components (superset of `default` that also includes connectors and custom components)
-
-Distributions can now inherit build tags from a `base` distribution, simplifying configuration (see `config/distributions.yaml`). Only predefined distributions from this file can be built.
+Use `uv run tools/ocelot.py --help` for additional options, such as specifying architecture (`--arch`), target regions (`--region`), or skipping publishing (`--skip-publish`).
 
 ## Understanding Distributions
 
-When running the "Publish Custom Collector Lambda layer" workflow, the **Distribution** option determines which set of OpenTelemetry Collector components are included in the layer. Here's a breakdown of what each option provides:
+**Ocelot** supports building different "distributions," which are pre-defined sets of OpenTelemetry Collector components tailored for specific use cases. These are defined in `config/distributions.yaml`.
 
 | Distribution          | Included Components / Build Tags                                                                                                | Description                                                                 |
 | :-------------------- | :------------------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------- |
-| `default`             | *(Upstream Default)* Standard receivers, processors, exporters, extensions                                                      | The standard set of components provided by the upstream OpenTelemetry Lambda. Does not include any connectors. |
-| `minimal`             | `lambdacomponents.custom`, OTLP Receiver, Batch Processor                                                                       | A lightweight layer with only essential OTLP receiving and batching.        |
-| `clickhouse`          | `lambdacomponents.custom`, OTLP Receiver, Batch Processor, **ClickHouse Exporter**                                              | Includes the custom ClickHouse exporter for sending data to ClickHouse.     |
-| `clickhouse-otlphttp` | `lambdacomponents.custom`, OTLP Receiver, Batch Processor, **ClickHouse Exporter**, **OTLP/HTTP Exporter**                       | Includes both the ClickHouse and standard OTLP/HTTP exporters.              |
-| `full`                | `lambdacomponents.custom`, `lambdacomponents.all` (All custom *and* upstream components)                                        | A comprehensive layer including all available upstream and custom components. Effectively a superset of `default` that also includes connectors like `spanmetrics`. |
+| `default`             | *(Upstream Default)* Standard receivers, processors, exporters, extensions                                                      | Provides the standard component set from the upstream project. Does not include connectors. |
+| `minimal`             | `lambdacomponents.custom`, OTLP Receiver, Batch Processor                                                                       | A lightweight distribution focused on essential OTLP ingestion and batching. |
+| `clickhouse`          | `lambdacomponents.custom`, OTLP Receiver, Batch Processor, **ClickHouse Exporter**                                              | Includes the custom ClickHouse exporter for direct data export.             |
+| `clickhouse-otlphttp` | `lambdacomponents.custom`, OTLP Receiver, Batch Processor, **ClickHouse Exporter**, **OTLP/HTTP Exporter**                       | Offers both ClickHouse and standard OTLP/HTTP export capabilities.          |
+| `full`                | `lambdacomponents.custom`, `lambdacomponents.all` (All custom *and* upstream components)                                        | A comprehensive distribution including all available upstream and custom components, including connectors like `spanmetrics`. |
 
-**Note:** All distributions except `default` automatically include the `lambdacomponents.custom` build tag, which is necessary for enabling the custom component overlay mechanism. Distributions can also define a `base` distribution in `config/distributions.yaml` to inherit build tags from; the final tag set is the unique combination of the base tags and the distribution's specific tags. Refer to the Go files in the `components/` directory and the upstream repository for details on available component tags.
+**Build Tag Mechanism:** The `lambdacomponents.custom` build tag is automatically included for all distributions except `default`, enabling the overlay mechanism. Distributions can inherit build tags from a `base` distribution defined in the configuration, promoting reuse and simplifying definitions. The final set of build tags used during compilation is the unique union of base tags and distribution-specific tags.
 
-## Upstream Default Components
+### Upstream Default Components
 
-The `default` distribution uses the standard component set provided by the upstream OpenTelemetry Lambda repository when no custom build tags are specified. This includes:
+The `default` distribution includes the following standard components from `open-telemetry/opentelemetry-lambda`:
 
-*   **Receivers:**
-    *   `otlp`: OTLP gRPC/HTTP receiver.
-    *   `telemetryapi`: AWS Lambda Telemetry API receiver.
-*   **Exporters:**
-    *   `debug`: Logs telemetry data to the console.
-    *   `otlp`: OTLP gRPC exporter.
-    *   `otlphttp`: OTLP HTTP exporter.
-    *   `prometheusremotewrite`: Prometheus Remote Write exporter.
-*   **Processors:**
-    *   `attributes`: Modifies attributes based on rules.
-    *   `filter`: Filters telemetry data based on criteria.
-    *   `memory_limiter`: Prevents excessive memory usage.
-    *   `probabilistic_sampler`: Samples traces probabilistically.
-    *   `resource`: Modifies resource attributes.
-    *   `span`: Modifies span attributes.
-    *   `coldstart`: Detects Lambda cold starts (Lambda specific).
-    *   `decouple`: Decouples pipeline processing for better Lambda performance (Lambda specific).
-    *   `batch`: Batches telemetry data before export.
-*   **Extensions:**
-    *   `sigv4auth`: Provides AWS SigV4 authentication for exporters.
-    *   `basicauth`: Provides Basic HTTP authentication for exporters/receivers.
-*   **Connectors:**
-    *   None. The default distribution does not include any connectors.
+*   **Receivers:** `otlp`, `telemetryapi`
+*   **Exporters:** `debug`, `otlp`, `otlphttp`, `prometheusremotewrite`
+*   **Processors:** `attributes`, `filter`, `memory_limiter`, `probabilistic_sampler`, `resource`, `span`, `coldstart`, `decouple`, `batch`
+*   **Extensions:** `sigv4auth`, `basicauth`
+*   **Connectors:** None.
 
-**Note:** The `full` distribution includes all of the above components, plus connectors like `spanmetrics` and any custom components defined in this repository.
+Refer to the upstream OpenTelemetry Lambda and Collector Contrib documentation for detailed configuration of these components.
 
-For detailed configuration options of these components, please refer to the upstream [OpenTelemetry Lambda](https://github.com/open-telemetry/opentelemetry-lambda) and [OpenTelemetry Collector Contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib) documentation.
+### Component Comparison: Default vs. Full
 
-## Detailed Component Comparison: Default vs Full Builds
+The primary distinction between `default` and `full` lies in the inclusion of connectors and custom components in the `full` distribution.
 
-The following tables provide a detailed comparison of components included in the `default` and `full` distributions:
+| Component Type | Component Name        | Default | Full |
+| :------------- | :-------------------- | :------: | :--: |
+| **Connectors** | spanmetrics           |          |  ✓   |
+|                | *Custom Connectors*   |          |  ✓   |
+| **Exporters**  | *Custom Exporters*    |          |  ✓   |
+|                | debug                 |    ✓     |  ✓   |
+|                | otlp                  |    ✓     |  ✓   |
+|                | otlphttp              |    ✓     |  ✓   |
+|                | prometheusremotewrite |    ✓     |  ✓   |
+| **Extensions** | basicauth             |    ✓     |  ✓   |
+|                | sigv4auth             |    ✓     |  ✓   |
+| **Processors** | *All Default*         |    ✓     |  ✓   |
+|                | *Custom Processors*   |          |  ✓   |
+| **Receivers**  | *All Default*         |    ✓     |  ✓   |
+|                | *Custom Receivers*    |          |  ✓   |
 
-### Connectors
 
-| Component Name | Default Build | Full Build |
-|---------------|--------------|------------|
-| spanmetrics |   | ✓ |
+## Customization Guide
 
-### Exporters
+Extend **ocelot** with your own components and distributions:
 
-| Component Name | Default Build | Full Build |
-|---------------|--------------|------------|
-| debug | ✓ | ✓ |
-| otlp | ✓ | ✓ |
-| otlphttp | ✓ | ✓ |
-| prometheusremotewrite | ✓ | ✓ |
+**Adding a New Custom Go Component (e.g., `myprocessor`):**
 
-### Extensions
-
-| Component Name | Default Build | Full Build |
-|---------------|--------------|------------|
-| basicauth | ✓ | ✓ |
-| sigv4auth | ✓ | ✓ |
-
-### Processors
-
-| Component Name | Default Build | Full Build |
-|---------------|--------------|------------|
-| attributes | ✓ | ✓ |
-| batch | ✓ | ✓ |
-| coldstart | ✓ | ✓ |
-| decouple | ✓ | ✓ |
-| filter | ✓ | ✓ |
-| memorylimiter | ✓ | ✓ |
-| probabilisticsampler | ✓ | ✓ |
-| resource | ✓ | ✓ |
-| span | ✓ | ✓ |
-
-### Receivers
-
-| Component Name | Default Build | Full Build |
-|---------------|--------------|------------|
-| otlp | ✓ | ✓ |
-| telemetryapi | ✓ | ✓ |
-
-As shown above, the key difference is that the `full` distribution includes additional connector components that are not available in the `default` distribution.
-
-## Usage
-
-### Publishing a Custom Layer
-
-1. Navigate to the "Actions" tab in the GitHub repository
-2. Select the "Publish Custom Collector Lambda layer" workflow
-3. Click "Run workflow" and configure the options:
-   - **Architecture**: Choose between `all`, `amd64`, or `arm64`
-   - **AWS Region**: Select the AWS region(s) for publishing
-   - **Distribution**: Select a predefined component set from `config/distributions.yaml`
-   - **Upstream Repo**: Repository to clone (default: `open-telemetry/opentelemetry-lambda`)
-   - **Upstream Ref**: Git reference to use (branch, tag, commit SHA)
-
-### Adding New Custom Components and Distributions
-
-**Adding a New Custom Go Component:**
-
-If you are adding entirely new functionality (like a new exporter or processor):
-
-1.  Create the corresponding `.go` file in the appropriate `components/collector/lambdacomponents/{component-type}/` directory (e.g., `exporter`, `processor`).
-2.  Add the standard Go build tags at the top of the file to control its inclusion:
+1.  **Place Go File:** Create your component file (`myprocessor.go`) in the corresponding directory within the overlay structure: `components/collector/lambdacomponents/processor/myprocessor.go`.
+2.  **Apply Build Tags:** Add the necessary Go build constraints at the top of your file:
     ```go
-    //go:build lambdacomponents.custom && (lambdacomponents.all || lambdacomponents.{component-type}.all || lambdacomponents.{component-type}.{component-name})
+    //go:build lambdacomponents.custom && (lambdacomponents.all || lambdacomponents.processor.all || lambdacomponents.processor.myprocessor)
     ```
-    Replace `{component-type}` and `{component-name}` accordingly (e.g., `lambdacomponents.exporter.myexporter`).
-3.  **Declare Dependencies (If Applicable):** If your component imports packages from Go modules that are *not* already part of the core OpenTelemetry Collector or the base `opentelemetry-lambda` dependencies, you must declare them. Edit `config/component_dependencies.yaml` and add an entry mapping your component's primary build tag (e.g., `lambdacomponents.exporter.myexporter`) to a list containing the required Go module path(s):
+    These tags control when your component is compiled into the collector based on the selected distribution.
+3.  **Declare Go Dependencies (If Required):** If your component relies on external Go modules not present in the upstream project, declare them in `config/component_dependencies.yaml` using the component's specific build tag as the key:
     ```yaml
     dependencies:
       # ... existing entries ...
-      lambdacomponents.exporter.myexporter:
-        - github.com/my-org/my-dependency-module/v2
-        # - github.com/another-org/another-module # Add more if needed
+      lambdacomponents.processor.myprocessor:
+        - github.com/dependency-org/dependency-repo/v1
     ```
-    The build script will use this mapping to run `go get` for these modules automatically. You do *not* need to add dependencies already provided by the upstream project (like `go.opentelemetry.io/collector/...`).
-4.  Add documentation for your new component in the `docs/` directory.
-5.  Update the "Custom Components" section of this README.md.
+    The build script (`tools/local_build/build.py`) will automatically fetch these dependencies using `go get`.
+4.  **Add Documentation:** Create a markdown file (e.g., `docs/myprocessor.md`) detailing the configuration and usage of your component.
+5.  **Update README:** List your new component in the "Current Custom Components" section below.
 
-**Defining a New Distribution Preset:**
+**Defining a New Distribution Preset (e.g., `analytics-focused`):**
 
-If you want to create a new named option in the "Distribution" dropdown that combines existing upstream or custom components using specific build tags:
-
-1.  Edit the `config/distributions.yaml` file.
-2.  Add a new top-level key with your desired distribution name (e.g., `my-custom-dist`).
-3.  Define the `description` and the list of `buildtags` required for this distribution. Remember to include `lambdacomponents.custom` if you are including any custom components or deviating from the upstream default.
+1.  **Modify Configuration:** Edit `config/distributions.yaml`.
+2.  **Add Definition:** Define your new distribution, potentially inheriting from a base:
     ```yaml
-    my-base-dist:
-      description: "A base set of components"
+    base-standard:
+      description: "Common components"
       buildtags:
         - lambdacomponents.custom
         - lambdacomponents.receiver.otlp
         - lambdacomponents.processor.batch
 
-    my-custom-dist:
-      description: "Inherits from base and adds myexporter"
-      base: my-base-dist # Optional: Inherit tags from another distribution
+    analytics-focused:
+      description: "Standard base plus my custom processor"
+      base: base-standard # Inherit tags from base-standard
       buildtags:
-        # Only list tags *not* already in the base
-        - lambdacomponents.exporter.myexporter 
+        # Add only the additional tags needed
+        - lambdacomponents.processor.myprocessor
     ```
-    If `base` is specified, the `buildtags` from the base distribution are automatically included. The final set of tags will be the unique combination of the base tags and the tags listed directly under `buildtags` for the current distribution.
-4.  Manually edit `.github/workflows/publish-custom-layer-collector.yml` and add your new distribution name (`my-custom-dist`) to the `options` list under `on.workflow_dispatch.inputs.distribution`. This makes it selectable in the GitHub Actions UI dropdown.
-5.  Update the "Available Distributions" list and the "Understanding Distributions" table in this README.md to include your new distribution preset.
+3.  **Update Workflow File:** Manually add the new distribution name (`analytics-focused`) to the `options` list for the `distribution` input in the `.github/workflows/publish-custom-layer-collector.yml` file to make it selectable in the GitHub Actions UI.
+4.  **Update README:** Include your new distribution in the "Understanding Distributions" table.
 
-See `docs/distribution-management.md` for more details on the refactored distribution management approach.
+## Current Custom Components
 
-## Implementation Details
+*   **ClickHouse Exporter**: Enables exporting telemetry data directly to ClickHouse databases. ([docs/clickhouse.md](docs/clickhouse.md))
+*   **AWS S3 Exporter**: Enables exporting telemetry data directly to Amazon S3 buckets.
+*   **SignalToMetrics Connector**: Converts signal data (e.g., spans) into metrics. (`components/collector/lambdacomponents/connector/signaltometricsconnector.go`)
+*   *(Your custom component could be listed here!)*
 
-### Directory Structure
+## Using the Ocelot Local Build Tool
 
-- `.github/workflows/`: GitHub Actions workflow definitions
-- `components/collector/lambdacomponents/{component-type}/{component-name}.go``: Custom components to overlay onto the upstream repo, following the directory structure of the upstream
-- `docs/`: Documentation for custom components and various implementation plans
+The `tools/ocelot.py` script is the primary CLI utility for building and optionally publishing Lambda layers.
 
-### Workflow Architecture
+### Usage
 
-The custom layers are built using a two-workflow approach:
+```bash
+uv run tools/ocelot.py [OPTIONS]
+```
 
-1. **Publish Custom Collector Lambda layer**: Main workflow that:
-   - Clones the upstream repository
-   - Overlays custom components
-   - Builds the collector with specified build tags
-   - Uploads the resulting artifacts
-   - Triggers the layer publishing process
+### Options
 
-2. **Custom Publish Lambda Layer**: Reusable workflow that:
-   - Constructs the layer name based on inputs
-   - Downloads the built layer artifact
-   - Publishes the layer to AWS Lambda
-   - Makes the layer public
+| Option | Description | Default |
+|---------|-------------|---------|
+| `--distribution, -d` | Distribution preset to build (see [Understanding Distributions](#understanding-distributions)) | `default` |
+| `--architecture, -a` | Target architecture (`amd64` or `arm64`) | `amd64` |
+| `--upstream-repo, -r` | Upstream OpenTelemetry Lambda repo | `open-telemetry/opentelemetry-lambda` |
+| `--upstream-ref, -b` | Upstream Git reference (branch, tag, SHA) | `main` |
+| `--layer-name, -l` | Base name for the Lambda layer | `ocel` |
+| `--runtimes` | Space-delimited list of compatible runtimes | `nodejs18.x nodejs20.x java17 python3.9 python3.10` |
+| `--skip-publish` | Skip publishing to AWS, only build locally | *false* |
+| `--verbose, -v` | Enable verbose output | *false* |
+| `--public` | Make the published layer publicly accessible | *false* |
+| `--keep-temp` | Keep temporary directories (e.g., upstream clone) | *false* |
 
-## Architecture Diagram
+### Examples
 
-The following diagram illustrates the caller flow and dependencies in this project:
+Build and publish the default distribution:
+
+```bash
+uv run tools/ocelot.py --distribution default
+```
+
+Build a minimal distribution for ARM64 without publishing:
+
+```bash
+uv run tools/ocelot.py -d minimal -a arm64 --skip-publish
+```
+
+Inject an error for testing:
+
+```bash
+LOCAL_BUILD_INJECT_ERROR=clone_repository uv run tools/ocelot.py -d minimal
+```
+
+---
+
+## Managing and Cleaning Up Lambda Layers
+
+The `tools/delete-layers.py` script helps you find and delete Lambda layers and associated DynamoDB records.
+
+### Usage
+
+```bash
+uv run tools/delete-layers.py [OPTIONS]
+```
+
+### Common Options
+
+| Option | Description |
+|---------|-------------|
+| `--pattern` | Pattern to match layer names (required) |
+| `--dry-run` | Preview deletions without making changes |
+| `--force` | Skip confirmation prompts |
+| `--regions` | Comma-separated list of AWS regions to target |
+| `--verbose` | Enable verbose output |
+| `--skip-dynamodb` | Skip deleting DynamoDB records |
+
+### Examples
+
+Preview layers matching "ocelot-dev" without deleting:
+
+```bash
+uv run tools/delete-layers.py --pattern ocelot-dev --dry-run
+```
+
+Delete all matching layers across `us-east-1` and `eu-west-1` without confirmation:
+
+```bash
+uv run tools/delete-layers.py --pattern ocelot-dev --force --regions us-east-1,eu-west-1
+```
+
+Delete layers but keep DynamoDB records:
+
+```bash
+uv run tools/delete-layers.py --pattern ocelot-dev --skip-dynamodb
+```
+
+**Warning:** This tool performs destructive actions. Use `--dry-run` first to review what will be deleted.
+
+---
+
+## Contributing
+
+Contributions are welcome! Please follow this general workflow:
+
+1.  **Fork:** Create your personal fork of the repository on GitHub.
+2.  **Clone:** Clone your fork to your local development machine.
+3.  **Branch:** Create a new feature branch for your changes (`git checkout -b feature/my-cool-addition`).
+4.  **Develop:**
+    *   Implement your new component or distribution changes as described in the "Customization Guide".
+    *   Ensure necessary documentation is added or updated.
+5.  **Test Locally:** Use the local build script (`uv run tools/ocelot.py --distribution YOUR_DISTRIBUTION`) to verify that your changes build successfully and function as expected.
+6.  **Commit & Push:** Commit your changes with clear, descriptive messages and push the branch to your fork (`git push origin feature/my-cool-addition`).
+7.  **Pull Request:** Open a Pull Request from your feature branch to the `main` branch of the original `dev7a/ocelot` repository. Provide a detailed description of your contribution.
+8.  **Review:** Engage in the review process and address any feedback.
+
+## Setting Up Your Fork for Automated Publishing
+
+To enable GitHub Actions in your fork to publish layers to your own AWS account, you need to configure AWS resources (IAM Role via OIDC, DynamoDB) and corresponding GitHub secrets.
+
+Detailed instructions and the necessary CloudFormation template are provided in the [**OIDC Setup Guide (oidc/README.md)**](./oidc/README.md).
+
+## Architecture Overview
+
+The following diagrams illustrate the system's workflow for both automated (GitHub Actions) and local builds.
+
+### GitHub Actions Workflow
 
 ```mermaid
 flowchart TD
-    %% Main entities with shapes
-    User([User via GitHub Actions UI])
-    GHA[GitHub Workflow: publish-custom-layer-collector.yml]
-    Reusable[Reusable Workflow: custom-layer-publish.yml]
-    BuildScript[build_extension_layer.py]
-    PublishScript[lambda_layer_publisher.py]
-    DistUtil[distribution_utils.py]
-    Lambda[(AWS Lambda Layers)]
-    DynamoDB[(DynamoDB Metadata Store)]
-    Config[config/distributions.yaml]
-    
-    %% Flow connections with labels
-    User -->|Trigger workflow| GHA
-    GHA -->|Build layer| BuildScript
-    GHA -->|Call workflow| Reusable
-    Reusable -->|Publish layer| PublishScript
-    
-    BuildScript -->|Load config| DistUtil
-    DistUtil -->|Read| Config
-    
-    PublishScript -->|Create layer| Lambda
-    PublishScript -->|Store metadata| DynamoDB
-    
-    %% Simple styling that won't break rendering
-    classDef workflow fill:#f96
-    classDef script fill:#9cf
-    classDef resource fill:#fcf
-    classDef user fill:#fff
-    classDef config fill:#cfc
-    
-    class GHA,Reusable workflow
-    class BuildScript,PublishScript,DistUtil script
-    class Lambda,DynamoDB resource
-    class User user
-    class Config config
+    A["Manual Trigger"] --> B["Prepare Environment"];
+
+    %% Parallel build jobs
+    B --> C1["Build Layer - Arch 1"];
+    B --> C2["Build Layer - Arch 2"];
+    B --> Cn["Build Layer - Arch N"];
+
+    %% Parallel release jobs depend on build jobs
+    C1 --> D1["Release Layer - Arch 1, Region"];
+    C2 --> D2["Release Layer - Arch 2, Region"];
+    Cn --> Dn["Release Layer - Arch N, Region"];
+
+    %% All releases converge to reports
+    D1 --> E["Generate Reports"];
+    D2 --> E;
+    Dn --> E;
+
+    E --> F["Create GitHub Release"];
+
+    %% Styling
+    classDef job fill:#e1e1ff,stroke:#333,stroke-width:1px;
+    class A,B,C1,C2,Cn,D1,D2,Dn,E,F job;
 ```
+
+This diagram illustrates the **automated publishing workflow** using GitHub Actions:
+
+- The process starts with a **manual trigger** of the workflow.
+- The environment is prepared, including setting up AWS credentials and build parameters.
+- Multiple **parallel build jobs** are launched, each targeting a specific architecture (e.g., `amd64`, `arm64`).
+- After building, **parallel release jobs** publish the built Lambda layers to the specified AWS regions.
+- All release jobs converge to a step that **generates reports** summarizing the published layers.
+- Finally, a **GitHub Release** is created or updated with the new layer artifacts and metadata.
+
+This automation enables multi-architecture, multi-region publishing with minimal manual intervention.
 
 ### Local Development Workflow
 
-For local development and testing, the workflow is simplified:
-
 ```mermaid
 flowchart TD
-    %% Main entities with shapes
-    DevUser([Developer on local machine])
-    LocalScript[test-distribution-locally.py]
-    BuildScript[build_extension_layer.py]
-    PublishScript[lambda_layer_publisher.py]
-    DistUtil[distribution_utils.py]
-    Lambda[(AWS Lambda Layers)]
-    DynamoDB[(DynamoDB Metadata Store)]
-    Config[config/distributions.yaml]
-    
-    %% Flow connections with labels
-    DevUser -->|Test locally| LocalScript
-    LocalScript -->|Build layer| BuildScript
-    LocalScript -->|Publish layer| PublishScript
-    
-    BuildScript -->|Load config| DistUtil
-    DistUtil -->|Read| Config
-    
-    PublishScript -->|Create layer| Lambda
-    PublishScript -->|Store metadata| DynamoDB
-    
-    %% Simple styling that won't break rendering
-    classDef script fill:#9cf
-    classDef resource fill:#fcf
-    classDef user fill:#fff
-    classDef config fill:#cfc
-    
-    class BuildScript,PublishScript,DistUtil,LocalScript script
-    class Lambda,DynamoDB resource
-    class DevUser user
-    class Config config
+    A[Local CLI Command] --> B(Load Distribution Config);
+    B --> C(Clone Upstream Repo);
+    C --> D(Determine Upstream Version);
+    D --> E(Determine Build Tags);
+    E --> F(Build Layer);
+    F --> G{Skip Publish?};
+    G -- No --> H(Publish Layer);
+    G -- Yes --> I[Skip Publishing];
+    H --> J(Generate Summary);
+    I --> J;
+    J --> K(Cleanup Temp Files);
+
+    %% Styling
+    classDef step fill:#e1e1ff,stroke:#333,stroke-width:1px;
+    class A,B,C,D,E,F,G,H,I,J,K step;
 ```
 
-This diagram shows:
+This diagram illustrates the **local build and publish workflow** when running the Ocelot CLI tool:
 
-1. **User Flows**:
-   - GitHub Actions UI for production layer publishing (inputs: architecture, AWS region, distribution, and making the layer public)
-   - Local development for testing and maintenance
+- The process begins with a **local CLI command** invocation.
+- The tool **loads the distribution configuration** to determine which components and build tags to use.
+- It **clones the upstream OpenTelemetry Lambda repository** at the specified version or branch.
+- The tool **determines the upstream version** to ensure compatibility.
+- It **resolves the build tags** based on the selected distribution.
+- The OpenTelemetry Collector is **built locally** with the overlayed custom components.
+- The workflow then checks whether to **skip publishing**:
+  - If **No**, it **publishes the built Lambda layer** to the configured AWS regions.
+  - If **Yes**, it skips publishing.
+- A **summary report** is generated, detailing the build and publish results.
+- Finally, **temporary files and directories are cleaned up**.
 
-2. **Script Dependencies**:
-   - How the build script uses distribution utilities
-   - How the publishing script interacts with AWS resources
-
-3. **Data Flow**:
-   - Configuration through distributions.yaml
-   - Artifact building and publishing processes
-   - Metadata storage in DynamoDB
-
-4. **Process Steps**:
-   - The main GitHub workflow prepares matrices for build and release
-   - The reusable workflow downloads artifacts and invokes the publishing script with environment variables
-   - Local testing uses the same underlying scripts but with different parameters
-
-The architecture follows a modular design where each component has a specific responsibility, making it easy to maintain and extend.
+This process allows rapid local iteration and testing before automating publishing via GitHub Actions.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for full details.
