@@ -73,13 +73,15 @@ Use `uv run tools/ocelot.py --help` for additional options, such as specifying a
 
 **Ocelot** supports building different "distributions," which are pre-defined sets of OpenTelemetry Collector components tailored for specific use cases. These are defined in `config/distributions.yaml`.
 
-| Distribution          | Included Components / Build Tags                                                                                                | Description                                                                 |
-| :-------------------- | :------------------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------- |
-| `default`             | *(Upstream Default)* Standard receivers, processors, exporters, extensions                                                      | Provides the standard component set from the upstream project. Does not include connectors. |
-| `minimal`             | `lambdacomponents.custom`, OTLP Receiver, Batch Processor                                                                       | A lightweight distribution focused on essential OTLP ingestion and batching. |
-| `clickhouse`          | `lambdacomponents.custom`, OTLP Receiver, Batch Processor, **ClickHouse Exporter**                                              | Includes the custom ClickHouse exporter for direct data export.             |
-| `clickhouse-otlphttp` | `lambdacomponents.custom`, OTLP Receiver, Batch Processor, **ClickHouse Exporter**, **OTLP/HTTP Exporter**                       | Offers both ClickHouse and standard OTLP/HTTP export capabilities.          |
-| `full`                | `lambdacomponents.custom`, `lambdacomponents.all` (All custom *and* upstream components)                                        | A comprehensive distribution including all available upstream and custom components, including connectors like `spanmetrics`. |
+| Distribution     | Description                                                      | Base     | Build Tags                                                                                      |
+|------------------|------------------------------------------------------------------|----------|------------------------------------------------------------------------------------------------|
+| `default`        | Standard upstream components                                     | *none*   | *(empty)*                                                                                       |
+| `full`           | All available upstream and custom components                     | *none*   | `lambdacomponents.custom`, `lambdacomponents.all`                                               |
+| `minimal`        | OTLP receiver, Batch processor, Decouple processor, OTLP/HTTP exporter | *none*   | `lambdacomponents.custom`, `lambdacomponents.receiver.otlp`, `lambdacomponents.processor.batch`, `lambdacomponents.processor.decouple`, `lambdacomponents.exporter.otlphttp` |
+| `clickhouse`     | Minimal + ClickHouse exporter                                   | minimal  | `lambdacomponents.exporter.clickhouse`                                                          |
+| `exporters`      | All exporters plus minimal components                            | minimal  | `lambdacomponents.exporter.all`                                                                 |
+| `s3export`       | Minimal + AWS S3 exporter                                       | minimal  | `lambdacomponents.exporter.awss3`                                                               |
+| `signaltometrics`| Minimal + Signal to Metrics connector                           | minimal  | `lambdacomponents.connector.signaltometrics`                                                    |
 
 **Build Tag Mechanism:** The `lambdacomponents.custom` build tag is automatically included for all distributions except `default`, enabling the overlay mechanism. Distributions can inherit build tags from a `base` distribution defined in the configuration, promoting reuse and simplifying definitions. The final set of build tags used during compilation is the unique union of base tags and distribution-specific tags.
 
@@ -237,7 +239,7 @@ uv run tools/ocelot.py [OPTIONS]
 | `--upstream-repo, -r` | Upstream OpenTelemetry Lambda repo | `open-telemetry/opentelemetry-lambda` |
 | `--upstream-ref, -b` | Upstream Git reference (branch, tag, SHA) | `main` |
 | `--layer-name, -l` | Base name for the Lambda layer | `ocel` |
-| `--runtimes` | Space-delimited list of compatible runtimes | `nodejs18.x nodejs20.x java17 python3.9 python3.10` |
+| `--runtimes` | Space-delimited list of compatible runtimes or empty| _empty_ |
 | `--skip-publish` | Skip publishing to AWS, only build locally | *false* |
 | `--verbose, -v` | Enable verbose output | *false* |
 | `--public` | Make the published layer publicly accessible | *false* |

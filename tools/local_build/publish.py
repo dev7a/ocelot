@@ -139,7 +139,7 @@ def publish_layer(context: BuildContext, tracker) -> BuildContext:
         return context
 
     except Exception as e:
-        error("Failed to publish layer", str(e))
+        error("Failed to publish layer", str(e), exc_info=e)
         raise TerminateApp(
             f"Publication failed: {str(e)}",
             step_index=4,

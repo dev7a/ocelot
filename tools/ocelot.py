@@ -109,7 +109,7 @@ ARCHITECTURE_CHOICES = ["amd64", "arm64"]
 )
 @click.option(
     "--runtimes",
-    default="nodejs18.x nodejs20.x java17 python3.9 python3.10",
+    default="",
     help="Space-delimited list of compatible runtimes.",
 )
 @click.option(
@@ -204,7 +204,7 @@ def main(
     except TerminateApp as e:
         # Display the error message if it hasn't been displayed yet
         from scripts.otel_layer_utils.ui_utils import error
-        error("Process terminated", e.message)
+        error("Process terminated", e.message, exc_info=e)
         
         # Update the tracker if step information is provided
         if (
@@ -217,16 +217,16 @@ def main(
 
         # Exit with the provided error code
         sys.exit(e.exit_code)
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
         # Error message should have been printed by run_command
         from scripts.otel_layer_utils.ui_utils import error
 
-        error("An error occurred during execution")
+        error("An error occurred during execution", exc_info=e)
         sys.exit(1)
     except Exception as e:
         from scripts.otel_layer_utils.ui_utils import error
 
-        error("An unexpected error occurred", str(e))
+        error("An unexpected error occurred", str(e), exc_info=e)
         sys.exit(1)
     finally:
         # Cleanup temporary upstream directory
@@ -239,5 +239,9 @@ if __name__ == "__main__":
     except TerminateApp as e:
         # Display the error if not already displayed
         from scripts.otel_layer_utils.ui_utils import error
-        error("Process terminated", e.message)
+        error("Process terminated", e.message, exc_info=e)
         sys.exit(e.exit_code)
+    except Exception as e:
+        from scripts.otel_layer_utils.ui_utils import error
+        error("An unexpected error occurred", str(e), exc_info=e)
+        sys.exit(1)

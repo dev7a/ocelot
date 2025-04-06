@@ -185,10 +185,10 @@ def check_layer_exists(
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             error_message = e.response.get("Error", {}).get("Message", "")
-            error("AWS Error", f"{error_code} - {error_message}")
+            error("AWS Error", f"{error_code} - {error_message}", exc_info=e)
             return False
         except Exception as e:
-            error("Error", str(e))
+            error("Error", str(e), exc_info=e)
             return False
 
     existing_layers = spinner("Checking existing layers", check_lambda_layers)
@@ -293,10 +293,10 @@ def publish_layer(
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             error_message = e.response.get("Error", {}).get("Message", "")
-            error("AWS Error", f"{error_code} - {error_message}")
+            error("AWS Error", f"{error_code} - {error_message}", exc_info=e)
             return None
         except Exception as e:
-            error("Error", str(e))
+            error("Error", str(e), exc_info=e)
             return None
 
     # Use spinner for reading file
@@ -361,10 +361,10 @@ def make_layer_public(layer_name: str, layer_arn: str, region: str, dry_run: boo
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             error_message = e.response.get("Error", {}).get("Message", "")
-            error("AWS Error", f"{error_code} - {error_message}")
+            error("AWS Error", f"{error_code} - {error_message}", exc_info=e)
             return None
         except Exception as e:
-            error("Error", str(e))
+            error("Error", str(e), exc_info=e)
             return None
 
     result = spinner("Updating layer permissions", update_permissions)
@@ -414,21 +414,21 @@ def write_metadata_to_dynamodb(dynamodb_region: str, metadata: dict, dry_run: bo
             response = write_item(metadata, region=dynamodb_region)
             return response
         except ValueError as e:
-            error("Validation Error", str(e))
+            error("Validation Error", str(e), exc_info=e)
             return None
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code")
             if error_code == "ResourceNotFoundException":
-                error("AWS Error", str(e))
+                error("AWS Error", str(e), exc_info=e)
                 detail(f"Detail", f"Table not found in {dynamodb_region}")
             elif error_code == "AccessDeniedException":
-                error("AWS Error", str(e))
+                error("AWS Error", str(e), exc_info=e)
                 detail("Detail", "Access denied - check IAM permissions")
             else:
-                error("AWS Error", str(e))
+                error("AWS Error", str(e), exc_info=e)
             return None
         except Exception as e:
-            error("Error", str(e))
+            error("Error", str(e), exc_info=e)
             return None
 
     response = spinner("Writing to DynamoDB", write_to_dynamo)
@@ -486,7 +486,7 @@ def create_github_summary(
         with open(github_step_summary, "a") as f:
             f.write(summary + "\n")
     except Exception as e:
-        error("Error writing to GITHUB_STEP_SUMMARY", str(e))
+        error("Error writing to GITHUB_STEP_SUMMARY", str(e), exc_info=e)
 
 
 def check_and_repair_dynamodb(
@@ -505,10 +505,10 @@ def check_and_repair_dynamodb(
             item = get_item(pk)
             return {"Item": item} if item else {}
         except ClientError as e:
-            error("AWS Error", str(e))
+            error("AWS Error", str(e), exc_info=e)
             return None
         except Exception as e:
-            error("Error", str(e))
+            error("Error", str(e), exc_info=e)
             return None
 
     response = spinner("Checking DynamoDB", check_dynamodb)
