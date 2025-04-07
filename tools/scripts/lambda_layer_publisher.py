@@ -311,14 +311,16 @@ def publish_layer(
     return layer_arn
 
 
-def make_layer_public(layer_name: str, layer_arn: str, region: str, dry_run: bool = False) -> bool:
+def make_layer_public(
+    layer_name: str, layer_arn: str, region: str, dry_run: bool = False
+) -> bool:
     """Make a Lambda layer version publicly accessible using boto3."""
     subheader("Making layer public")
     status("Layer ARN", layer_arn)
 
     if dry_run:
         info("Dry Run", f"Would make layer {layer_arn} public in {region}")
-        return True # Assume success for dry run
+        return True  # Assume success for dry run
 
     if not layer_arn:
         error("No ARN", "Cannot make layer public")
@@ -380,7 +382,9 @@ def make_layer_public(layer_name: str, layer_arn: str, region: str, dry_run: boo
         return False
 
 
-def write_metadata_to_dynamodb(dynamodb_region: str, metadata: dict, dry_run: bool = False) -> bool:
+def write_metadata_to_dynamodb(
+    dynamodb_region: str, metadata: dict, dry_run: bool = False
+) -> bool:
     """Write the collected layer metadata to the DynamoDB table."""
     subheader("Writing metadata")
     status("Target table", DYNAMODB_TABLE_NAME)
@@ -389,7 +393,7 @@ def write_metadata_to_dynamodb(dynamodb_region: str, metadata: dict, dry_run: bo
         info("Dry Run", "Would write the following metadata to DynamoDB:")
         for key, value in metadata.items():
             detail(f"  {key}", str(value))
-        return True # Assume success for dry run
+        return True  # Assume success for dry run
 
     # Basic validation
     required_keys = [
@@ -420,7 +424,7 @@ def write_metadata_to_dynamodb(dynamodb_region: str, metadata: dict, dry_run: bo
             error_code = e.response.get("Error", {}).get("Code")
             if error_code == "ResourceNotFoundException":
                 error("AWS Error", str(e), exc_info=e)
-                detail(f"Detail", f"Table not found in {dynamodb_region}")
+                detail("Detail", f"Table not found in {dynamodb_region}")
             elif error_code == "AccessDeniedException":
                 error("AWS Error", str(e), exc_info=e)
                 detail("Detail", "Access denied - check IAM permissions")
@@ -490,7 +494,12 @@ def create_github_summary(
 
 
 def check_and_repair_dynamodb(
-    dynamodb_region: str, args_dict, existing_layer_arn: str, md5_hash: str, layer_version_str: str, dry_run: bool = False
+    dynamodb_region: str,
+    args_dict,
+    existing_layer_arn: str,
+    md5_hash: str,
+    layer_version_str: str,
+    dry_run: bool = False,
 ):
     """Checks if metadata for an existing layer ARN is in DynamoDB and adds it if missing."""
     subheader("Checking DynamoDB")
@@ -534,11 +543,15 @@ def check_and_repair_dynamodb(
             else None,
         }
         # Attempt to write the missing record (or simulate in dry run)
-        write_success = write_metadata_to_dynamodb(dynamodb_region, metadata, dry_run=dry_run)
+        write_success = write_metadata_to_dynamodb(
+            dynamodb_region, metadata, dry_run=dry_run
+        )
         if write_success:
             success("Repair complete" if not dry_run else "Dry Run: Repair simulated")
         else:
-            error("Repair failed" if not dry_run else "Dry Run: Repair simulation failed")
+            error(
+                "Repair failed" if not dry_run else "Dry Run: Repair simulation failed"
+            )
     elif response:
         info("Metadata exists", "No repair needed")
 
@@ -612,7 +625,7 @@ def env_bool(env_var, default=False):
 )
 @click.option(
     "--dry-run",
-    type=click.BOOL, # Changed from is_flag=True
+    type=click.BOOL,  # Changed from is_flag=True
     default=False,
     help="Perform a dry run without actual publishing (true/false)",
 )
@@ -686,13 +699,15 @@ def main(
             arch_str,
             runtimes,
             build_tags=build_tags,
-            dry_run=dry_run, # Pass dry_run flag
+            dry_run=dry_run,  # Pass dry_run flag
         )
         if layer_arn:
             # Step 5: Make layer public only if explicitly requested and not in dry run
             public_success = True
             if make_public:
-                public_success = make_layer_public(layer_name, layer_arn, region, dry_run=dry_run) # Pass dry_run
+                public_success = make_layer_public(
+                    layer_name, layer_arn, region, dry_run=dry_run
+                )  # Pass dry_run
             else:
                 info(
                     "Keeping layer private",
@@ -718,8 +733,10 @@ def main(
                     # Store as a list instead of a set for DynamoDB List (L) type
                     "compatible_runtimes": runtimes.split() if runtimes else None,
                 }
-                dynamo_success = write_metadata_to_dynamodb(dynamodb_region, metadata, dry_run=dry_run) # Pass dry_run
-                if not dynamo_success and not dry_run: # Only warn if not dry run
+                dynamo_success = write_metadata_to_dynamodb(
+                    dynamodb_region, metadata, dry_run=dry_run
+                )  # Pass dry_run
+                if not dynamo_success and not dry_run:  # Only warn if not dry run
                     warning(
                         "Layer published and made public, but failed to write metadata to DynamoDB"
                     )
@@ -744,7 +761,12 @@ def main(
 
         # Check/repair DynamoDB even in dry run mode to simulate the check
         check_and_repair_dynamodb(
-            dynamodb_region, args_dict, existing_layer_arn, md5_hash, layer_version_str, dry_run=dry_run # Pass dry_run
+            dynamodb_region,
+            args_dict,
+            existing_layer_arn,
+            md5_hash,
+            layer_version_str,
+            dry_run=dry_run,  # Pass dry_run
         )
         # Note: We don't set dynamo_success here, as the goal was just checking/repairing.
         # The summary will correctly reflect 'Reused existing layer'.

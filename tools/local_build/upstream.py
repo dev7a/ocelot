@@ -2,7 +2,6 @@
 
 from pathlib import Path
 import tempfile
-import os
 
 from scripts.otel_layer_utils.ui_utils import (
     status,

@@ -19,10 +19,7 @@ from botocore.exceptions import ClientError
 
 # Import DynamoDB utilities
 from otel_layer_utils.dynamodb_utils import DYNAMODB_TABLE_NAME, query_by_distribution
-from otel_layer_utils.regions_utils import (
-    get_region_info,
-    get_wide_region
-)
+from otel_layer_utils.regions_utils import get_region_info, get_wide_region
 
 
 def generate_notes(distribution: str, collector_version: str, build_tags: str):
@@ -105,57 +102,69 @@ def generate_notes(distribution: str, collector_version: str, build_tags: str):
                 x.get("architecture", "zzzz"),
             ),
         )
-        
+
         # Group by wide region and region
         wide_regions = {}
         for item in sorted_items:
             region = item.get("region", "unknown")
             wide_region = get_wide_region(region)
-            
+
             if wide_region not in wide_regions:
                 wide_regions[wide_region] = {}
-                
+
             if region not in wide_regions[wide_region]:
                 wide_regions[wide_region][region] = {"amd64": [], "arm64": []}
-                
+
             arch = item.get("architecture", "unknown")
             if arch in ["amd64", "arm64"]:
                 wide_regions[wide_region][region][arch].append(item)
-        
+
         # Generate tables with badges
         for wide_region in sorted(wide_regions.keys()):
             body_lines.append("<table>")
             # Wide region header
-            body_lines.append(f'<tr><td colspan="3"><strong>{wide_region}</strong></td></tr>')
-            
+            body_lines.append(
+                f'<tr><td colspan="3"><strong>{wide_region}</strong></td></tr>'
+            )
+
             # Process each region in this wide region
             for region in sorted(wide_regions[wide_region].keys()):
                 region_display = region_display_map.get(region, region)
                 region_data = wide_regions[wide_region][region]
-                
+
                 # Region header
-                body_lines.append(f'<tr><td colspan="3">✅ <strong>{region_display}</strong></td></tr>')
-                
+                body_lines.append(
+                    f'<tr><td colspan="3">✅ <strong>{region_display}</strong></td></tr>'
+                )
+
                 # AMD64 row
                 if region_data["amd64"]:
                     for item in region_data["amd64"]:
                         arn = item.get("layer_arn", "N/A")
                         body_lines.append("<tr>")
-                        body_lines.append(f'<td><img src="https://img.shields.io/badge/{region.replace("-", "--")}-eee?style=for-the-badge" alt="{region}"></td>')
-                        body_lines.append('<td><img src="https://img.shields.io/badge/arch-amd64-blue?style=for-the-badge" alt="amd64"></td>')
+                        body_lines.append(
+                            f'<td><img src="https://img.shields.io/badge/{region.replace("-", "--")}-eee?style=for-the-badge" alt="{region}"></td>'
+                        )
+                        body_lines.append(
+                            '<td><img src="https://img.shields.io/badge/arch-amd64-blue?style=for-the-badge" alt="amd64"></td>'
+                        )
                         body_lines.append(f"<td>{arn}</td>")
                         body_lines.append("</tr>")
-                
+
                 # ARM64 row
                 if region_data["arm64"]:
                     for item in region_data["arm64"]:
                         arn = item.get("layer_arn", "N/A")
                         body_lines.append("<tr>")
-                        body_lines.append(f'<td><img src="https://img.shields.io/badge/{region.replace("-", "--")}-eee?style=for-the-badge" alt="{region}"></td>')
-                        body_lines.append('<td><img src="https://img.shields.io/badge/arch-arm64-orange?style=for-the-badge" alt="arm64"></td>')
+                        body_lines.append(
+                            f'<td><img src="https://img.shields.io/badge/{region.replace("-", "--")}-eee?style=for-the-badge" alt="{region}"></td>'
+                        )
+                        body_lines.append(
+                            '<td><img src="https://img.shields.io/badge/arch-arm64-orange?style=for-the-badge" alt="arm64"></td>'
+                        )
                         body_lines.append(f"<td>{arn}</td>")
                         body_lines.append("</tr>")
-            
+
             body_lines.append("</table>")
             body_lines.append("")  # Add blank line between wide regions
 

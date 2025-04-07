@@ -26,7 +26,7 @@ Features:
 
 Testing Features:
 - Set LOCAL_BUILD_INJECT_ERROR=<function_name> to simulate an error in a specific function:
-  Available functions: clone_repository, determine_upstream_version, determine_build_tags, 
+  Available functions: clone_repository, determine_upstream_version, determine_build_tags,
   build_layer, verify_credentials, publish_layer
 """
 
@@ -56,7 +56,13 @@ from local_build.report import generate_summary
 from local_build.context import BuildContext
 
 # Import from the UI utilities
-from scripts.otel_layer_utils.ui_utils import separator, set_verbose_mode, StepTracker, info, warning
+from scripts.otel_layer_utils.ui_utils import (
+    separator,
+    set_verbose_mode,
+    StepTracker,
+    info,
+    warning,
+)
 
 # Check for error injection environment variable
 error_target = os.environ.get("LOCAL_BUILD_INJECT_ERROR")
@@ -193,6 +199,7 @@ def main(
             if context.verbose:
                 info("Build step", "Starting AWS credential verification")
             from local_build.aws import verify_credentials
+
             context = verify_credentials(context, tracker)
             if context.verbose:
                 info("Build step", "Starting layer publication")
@@ -204,8 +211,9 @@ def main(
     except TerminateApp as e:
         # Display the error message if it hasn't been displayed yet
         from scripts.otel_layer_utils.ui_utils import error
+
         error("Process terminated", e.message, exc_info=e)
-        
+
         # Update the tracker if step information is provided
         if (
             hasattr(e, "step_index")
@@ -239,9 +247,11 @@ if __name__ == "__main__":
     except TerminateApp as e:
         # Display the error if not already displayed
         from scripts.otel_layer_utils.ui_utils import error
+
         error("Process terminated", e.message, exc_info=e)
         sys.exit(e.exit_code)
     except Exception as e:
         from scripts.otel_layer_utils.ui_utils import error
+
         error("An unexpected error occurred", str(e), exc_info=e)
         sys.exit(1)

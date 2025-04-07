@@ -82,6 +82,7 @@ class BuildContext:
     def set_dynamodb_region(self, region: str) -> None:
         """Set the DynamoDB region."""
         from scripts.otel_layer_utils.ui_utils import detail
+
         if self.verbose:
             detail("Setting DynamoDB region", f"region={region}")
         self.dynamodb_region = region

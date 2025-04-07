@@ -2,7 +2,6 @@
 
 import re
 import sys
-from pathlib import Path
 
 from scripts.otel_layer_utils.ui_utils import (
     header,
@@ -37,8 +36,11 @@ def publish_layer(context: BuildContext, tracker) -> BuildContext:
         TerminateApp: If publishing fails
     """
     if context.verbose:
-        info("Function call", f"publish_layer started with aws_region={context.aws_region}, dynamodb_region={context.dynamodb_region}")
-    
+        info(
+            "Function call",
+            f"publish_layer started with aws_region={context.aws_region}, dynamodb_region={context.dynamodb_region}",
+        )
+
     # Check if we should skip publishing
     if context.skip_publish:
         info("Skipping publish step", "Publishing not requested")

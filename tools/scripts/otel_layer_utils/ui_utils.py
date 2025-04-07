@@ -19,8 +19,6 @@ from yaspin import yaspin as yaspin_func
 from yaspin.spinners import Spinners
 from typing import List, Dict, Any, Optional, Callable
 import time  # Add time module for tracking elapsed time
-import re
-import sys
 import traceback
 
 # STYLING CONFIGURATION
@@ -163,7 +161,9 @@ def success(text: str, value: Optional[str] = None) -> None:
         click.echo("")
 
 
-def error(text: str, details: Optional[str] = None, exc_info: Optional[Exception] = None) -> None:
+def error(
+    text: str, details: Optional[str] = None, exc_info: Optional[Exception] = None
+) -> None:
     """Display an error message with optional details and traceback.
 
     Args:
@@ -175,14 +175,16 @@ def error(text: str, details: Optional[str] = None, exc_info: Optional[Exception
         f"{STYLE_CONFIG['error_prefix']}{text}", fg=COLORS["error"], bold=True, nl=False
     )
     click.echo(f"{STYLE_CONFIG['separator']}{details}" if details else "")
-    
+
     # Show traceback information in verbose mode
     global VERBOSE_MODE
     if VERBOSE_MODE and exc_info is not None:
         tb_str = format_traceback(exc_info)
         if tb_str:
             click.echo("")  # Add spacing
-            click.secho("╔═ TRACEBACK INFORMATION " + "═" * 40, fg="bright_yellow", bold=True)
+            click.secho(
+                "╔═ TRACEBACK INFORMATION " + "═" * 40, fg="bright_yellow", bold=True
+            )
             click.echo(tb_str)
             click.secho("╚" + "═" * 60, fg="bright_yellow", bold=True)
             click.echo("")  # Add spacing
@@ -190,46 +192,52 @@ def error(text: str, details: Optional[str] = None, exc_info: Optional[Exception
 
 def format_traceback(exc: Exception) -> str:
     """Format exception traceback into a readable string.
-    
+
     Args:
         exc: The exception to format
-        
+
     Returns:
         Formatted traceback string
     """
     if exc is None:
         return ""
-        
+
     try:
         # Get traceback info excluding the error handling code itself
         tb_lines = traceback.format_exception(type(exc), exc, exc.__traceback__)
-        
+
         # Format each line with indentation and colors
         formatted_lines = []
         for line in tb_lines:
             # Remove any \n at the end of the line and split on remaining newlines
-            line_parts = line.rstrip('\n').split('\n')
+            line_parts = line.rstrip("\n").split("\n")
             for part in line_parts:
                 if part:
                     # Highlight file paths and line numbers
                     if "File " in part and ", line " in part:
                         file_path = part.split('"')[1] if '"' in part else ""
-                        line_num = part.split(", line ")[1].split(",")[0] if ", line " in part else ""
-                        
+                        line_num = (
+                            part.split(", line ")[1].split(",")[0]
+                            if ", line " in part
+                            else ""
+                        )
+
                         # Format with color highlighting
                         if file_path and line_num:
                             part = part.replace(
-                                f'"{file_path}"', 
-                                click.style(f'"{file_path}"', fg="bright_cyan", bold=True)
+                                f'"{file_path}"',
+                                click.style(
+                                    f'"{file_path}"', fg="bright_cyan", bold=True
+                                ),
                             )
                             part = part.replace(
-                                f", line {line_num}", 
-                                f", line {click.style(line_num, fg='bright_green', bold=True)}"
+                                f", line {line_num}",
+                                f", line {click.style(line_num, fg='bright_green', bold=True)}",
                             )
-                    
+
                     formatted_lines.append(f"║ {part}")
-                    
-        return '\n'.join(formatted_lines)
+
+        return "\n".join(formatted_lines)
     except Exception:
         # Fallback in case of any error during traceback formatting
         return f"║ Error type: {type(exc).__name__}\n║ Error message: {str(exc)}"

@@ -2,7 +2,6 @@
 
 import os
 import sys
-from pathlib import Path
 
 from scripts.otel_layer_utils.ui_utils import (
     header,

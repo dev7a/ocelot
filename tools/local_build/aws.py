@@ -1,10 +1,17 @@
 """AWS utilities for the local build process."""
 
-
-from scripts.otel_layer_utils.ui_utils import success, warning, error, detail, subheader, info
+from scripts.otel_layer_utils.ui_utils import (
+    success,
+    warning,
+    error,
+    detail,
+    subheader,
+    info,
+)
 from .context import BuildContext
-from typing import Optional, Tuple
 from .exceptions import TerminateApp
+from .testing import inject_error
+
 
 
 def check_aws_credentials() -> bool:
@@ -82,9 +89,6 @@ def get_aws_region() -> str:
         )
 
 
-# Import locally to avoid circular imports
-from .testing import inject_error
-
 
 @inject_error(step_index=4)
 def verify_credentials(context: BuildContext, tracker) -> BuildContext:
@@ -103,7 +107,7 @@ def verify_credentials(context: BuildContext, tracker) -> BuildContext:
     """
     if context.verbose:
         info("Function call", "verify_credentials started")
-    
+
     # Sub-step: Check AWS Credentials
     subheader("Checking AWS credentials")
     if not check_aws_credentials():
@@ -122,10 +126,16 @@ def verify_credentials(context: BuildContext, tracker) -> BuildContext:
 
     # Update the context with the AWS region
     if context.verbose:
-        info("Region values before update", f"aws_region={context.aws_region}, dynamodb_region={context.dynamodb_region}")
+        info(
+            "Region values before update",
+            f"aws_region={context.aws_region}, dynamodb_region={context.dynamodb_region}",
+        )
     context.set_aws_region(region)
     context.set_dynamodb_region(region)
     if context.verbose:
-        info("Region values after update", f"aws_region={context.aws_region}, dynamodb_region={context.dynamodb_region}")
+        info(
+            "Region values after update",
+            f"aws_region={context.aws_region}, dynamodb_region={context.dynamodb_region}",
+        )
 
     return context
