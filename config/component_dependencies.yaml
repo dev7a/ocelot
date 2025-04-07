@@ -1,0 +1,22 @@
+# config/component_dependencies.yaml
+# Maps specific build tags to the Go module(s) they require.
+# The build script uses this to run 'go get' for necessary dependencies
+# only when the corresponding component is included in the build.
+dependencies:
+  # Build Tag: List of Go Module Paths (version will be appended by the script)
+  lambdacomponents.exporter.clickhouse:
+    - github.com/open-telemetry/opentelemetry-collector-contrib/exporter/clickhouseexporter
+
+  # AWS S3 exporter
+  lambdacomponents.exporter.awss3:
+    - github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awss3exporter
+
+  # Signal to Metrics connector
+  lambdacomponents.connector.signaltometrics:
+    - github.com/open-telemetry/opentelemetry-collector-contrib/connector/signaltometricsconnector
+
+  # Add mappings for future custom components here
+  # Example:
+  # lambdacomponents.processor.myprocessor:
+  #   - github.com/some-org/some-module/v2
+  #   - github.com/another-org/another-module

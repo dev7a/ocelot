@@ -1,0 +1,129 @@
+## Setting Up Your Fork for Automated Publishing
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  CloudFormation template to set up an OIDC provider for GitHub Actions
+  and create an IAM role and DynamoDB table for the ocelot project fork.
+  Allows GitHub Actions in your fork to publish Lambda layers and manage metadata.
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: Your GitHub organization or username.
+    Default: "YOUR_GITHUB_USERNAME"
+  GitHubRepo:
+    Type: String
+    Description: The name of your forked ocelot repository.
+    Default: my-ocelot-fork
+  RoleName:
+    Type: String
+    Description: The name for the IAM role GitHub Actions will assume.
+    Default: "ocelot-gha-role"
+  TableName:
+    Type: String
+    Description: The name for the DynamoDB table to store layer metadata.
+    Default: "ocelot-layers-metadata"
+
+Resources:
+  GitHubOIDCProvider:
+    Type: 'AWS::IAM::OIDCProvider'
+    Properties:
+      Url: 'https://token.actions.githubusercontent.com'
+      ClientIdList:
+        - 'sts.amazonaws.com'
+      ThumbprintList:
+        # Verify the current thumbprint via AWS documentation or OpenID Connect discovery
+        - 'A031C46782E6E6C662C2C87C76DA9AA62CCABD8E' # As of late 2023/early 2024, check for updates
+
+  CustomCollectorExtensionLayersRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Ref RoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Federated: !Ref GitHubOIDCProvider
+            Action: 'sts:AssumeRoleWithWebIdentity'
+            Condition:
+              StringEquals:
+                # Audience must be sts.amazonaws.com
+                token.actions.githubusercontent.com:aud: 'sts.amazonaws.com'
+              StringLike:
+                # Limit role assumption to your specific repository fork
+                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOrg}/${GitHubRepo}:*'
+      Policies:
+        - PolicyName: 'OcelotLayerPublishPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Permissions to publish Lambda layers (adjust prefix if needed)
+              - Effect: 'Allow'
+                Action:
+                  - 'lambda:GetLayerVersion'
+                  - 'lambda:DeleteLayerVersion' # Optional: If cleanup is needed
+                  - 'lambda:ListLayerVersions'
+                  - 'lambda:AddLayerVersionPermission'
+                  - 'lambda:PublishLayerVersion'
+                  - 'lambda:TagResource'
+                Resource:
+                  # Allow publishing layers with a specific prefix (e.g., ocel-)
+                  - !Sub 'arn:aws:lambda:*:${AWS::AccountId}:layer:ocel-*'
+                  - !Sub 'arn:aws:lambda:*:${AWS::AccountId}:layer:ocel-*:*'
+              # Permissions for DynamoDB metadata table
+              - Effect: 'Allow'
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:BatchGetItem'
+                  - 'dynamodb:DescribeTable'
+                  - 'dynamodb:ConditionCheckItem'
+                Resource:
+                  # Grant access only to the specific DynamoDB table created by this stack
+                  - !GetAtt PublishedCustomCollectorExtensionLayers.Arn
+                  # Allow access to indexes
+                  - !Sub '${PublishedCustomCollectorExtensionLayers.Arn}/index/*'
+
+  PublishedCustomCollectorExtensionLayers:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      # Use On-Demand billing for simplicity, or provision throughput if usage is predictable
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: 'pk' # Partition Key (e.g., LayerName#Arch)
+          KeyType: 'HASH'
+        - AttributeName: 'sk' # Sort Key (e.g., Region#Version)
+          KeyType: 'RANGE'
+      AttributeDefinitions:
+        - AttributeName: 'pk'
+          AttributeType: 'S'
+        - AttributeName: 'sk'
+          AttributeType: 'S'
+      Optional: Define Global Secondary Indexes if needed for different query patterns
+      GlobalSecondaryIndexes:
+        - IndexName: 'sk-pk-index' # Example: Query by Region/Version
+          KeySchema:
+            - AttributeName: 'sk'
+              KeyType: 'HASH'
+            - AttributeName: 'pk'
+              KeyType: 'RANGE'
+          Projection:
+            ProjectionType: 'ALL' # Or 'KEYS_ONLY' or 'INCLUDE'
+
+Outputs:
+  GitHubOIDCProviderArn:
+    Value: !Ref GitHubOIDCProvider
+    Description: "ARN of the GitHub OIDC Provider"
+  CustomCollectorExtensionLayersRoleArn:
+    Value: !GetAtt CustomCollectorExtensionLayersRole.Arn
+    Description: "ARN of the IAM Role for ocelot GitHub Actions"
+  DynamoDBTableName:
+    Value: !Ref PublishedCustomCollectorExtensionLayers
+    Description: "Name of the DynamoDB table for layer metadata"
