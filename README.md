@@ -32,7 +32,7 @@ The build process works as follows:
 4.  **Package Layer:** Creates a `.zip` archive suitable for deployment as an AWS Lambda Layer.
 5.  **Publish (Optional):** Uploads the layer to specified AWS regions and records metadata.
 
-This approach allows for seamless integration of custom functionality while staying synchronized with upstream developments, significantly reducing maintenance efforts.
+This approach allows for seamless integration of custom functionality while staying synchronized with upstream developments, significantly reducing maintenance efforts. For a detailed explanation of the overlay build process and how Ocelot integrates with the upstream repository, see [Architecture](docs/architecture.md) and [Upstream Integration](docs/upstream.md).
 
 ## Build and Deployment Options
 
@@ -46,7 +46,7 @@ Choose the method that best suits your workflow and requirements:
 
 To build layers locally, ensure you have the following prerequisites installed:
 
-1.  **Go:** The latest stable version. ([Installation Guide](https://go.dev/doc/install))
+1.  **Go:** The latest stable version. ([Installation Guide](https://go.dev/docs/install))
 2.  **uv:** A fast Python package manager. ([Installation Guide](https://docs.astral.sh/uv/getting-started/installation/))
 3.  **AWS Credentials:** Configured for programmatic access (e.g., via `~/.aws/credentials`, environment variables, or IAM role).
 
@@ -67,7 +67,7 @@ uv run tools/ocelot.py --distribution minimal
 
 This command performs the clone, overlay, build, and packaging steps for the `minimal` distribution and `amd64` architecture by default. It saves the resulting `.zip` file in the `build/` directory and publishes the layer to your configured default AWS region.
 
-Use `uv run tools/ocelot.py --help` for additional options, such as specifying architecture (`--arch`), target regions (`--region`), or skipping publishing (`--skip-publish`).
+Use `uv run tools/ocelot.py --help` for additional options, such as specifying architecture (`--arch`), target regions (`--region`), or skipping publishing (`--skip-publish`). For advanced CLI options and build tooling internals, see [Tooling](docs/tooling.md).
 
 ## Understanding Distributions
 
@@ -83,7 +83,7 @@ Use `uv run tools/ocelot.py --help` for additional options, such as specifying a
 | `s3export`       | Minimal + AWS S3 exporter                                       | minimal  | `lambdacomponents.exporter.awss3`                                                               |
 | `signaltometrics`| Minimal + Signal to Metrics connector                           | minimal  | `lambdacomponents.connector.signaltometrics`                                                    |
 
-**Build Tag Mechanism:** The `lambdacomponents.custom` build tag is automatically included for all distributions except `default`, enabling the overlay mechanism. Distributions can inherit build tags from a `base` distribution defined in the configuration, promoting reuse and simplifying definitions. The final set of build tags used during compilation is the unique union of base tags and distribution-specific tags.
+**Build Tag Mechanism:** The `lambdacomponents.custom` build tag is automatically included for all distributions except `default`, enabling the overlay mechanism. Distributions can inherit build tags from a `base` distribution defined in the configuration, promoting reuse and simplifying definitions. The final set of build tags used during compilation is the unique union of base tags and distribution-specific tags. For full details on distribution definitions and inheritance, see [Configurations](docs/configurations.md#1-configdistributionsyaml).
 
 ### Upstream Default Components
 
@@ -95,7 +95,7 @@ The `default` distribution includes the following standard components from `open
 *   **Extensions:** `sigv4auth`, `basicauth`
 *   **Connectors:** None.
 
-Refer to the upstream OpenTelemetry Lambda and Collector Contrib documentation for detailed configuration of these components.
+Refer to the upstream OpenTelemetry Lambda and Collector Contrib documentation for detailed configuration of these components. For a technical breakdown of how Ocelot includes custom components using build tags, see [Components](docs/components.md).
 
 ### Component Comparison: Default vs. Full
 
@@ -120,65 +120,26 @@ The primary distinction between `default` and `full` lies in the inclusion of co
 
 ## Customization Guide
 
-Extend **ocelot** with your own components and distributions:
+Extend **ocelot** with your own components and distributions. This involves placing Go files with specific build tags, declaring dependencies, and defining distribution presets in configuration files.
 
-**Adding a New Custom Go Component (e.g., `myprocessor`):**
+For detailed step-by-step instructions, refer to:
 
-1.  **Place Go File:** Create your component file (`myprocessor.go`) in the corresponding directory within the overlay structure: `components/collector/lambdacomponents/processor/myprocessor.go`.
-2.  **Apply Build Tags:** Add the necessary Go build constraints at the top of your file:
-    ```go
-    //go:build lambdacomponents.custom && (lambdacomponents.all || lambdacomponents.processor.all || lambdacomponents.processor.myprocessor)
-    ```
-    These tags control when your component is compiled into the collector based on the selected distribution.
-3.  **Declare Go Dependencies (If Required):** If your component relies on external Go modules not present in the upstream project, declare them in `config/component_dependencies.yaml` using the component's specific build tag as the key:
-
-    ```yaml
-    dependencies:
-      # ... existing entries ...
-      lambdacomponents.processor.myprocessor:
-        - github.com/dependency-org/dependency-repo/v1
-    ```
-
-    The build script (`tools/local_build/build.py`) will automatically fetch these dependencies using `go get`.
-4.  **Add Documentation:** Create a markdown file (e.g., `docs/myprocessor.md`) detailing the configuration and usage of your component.
-5.  **Update README:** List your new component in the "Current Custom Components" section below.
-
-**Defining a New Distribution Preset (e.g., `analytics-focused`):**
-
-1.  **Modify Configuration:** Edit `config/distributions.yaml`.
-2.  **Add Definition:** Define your new distribution, potentially inheriting from a base:
-
-    ```yaml
-    base-standard:
-      description: "Common components"
-      buildtags:
-        - lambdacomponents.custom
-        - lambdacomponents.receiver.otlp
-        - lambdacomponents.processor.batch
-
-    analytics-focused:
-      description: "Standard base plus my custom processor"
-      base: base-standard # Inherit tags from base-standard
-      buildtags:
-        # Add only the additional tags needed
-        - lambdacomponents.processor.myprocessor
-    ```
-    
-3.  **Update Workflow File:** Manually add the new distribution name (`analytics-focused`) to the `options` list for the `distribution` input in the `.github/workflows/publish-custom-layer-collector.yml` file to make it selectable in the GitHub Actions UI.
-4.  **Update README:** Include your new distribution in the "Understanding Distributions" table.
+-   **[Adding Custom Components](docs/components.md#adding-new-components)**: Learn how to create Go wrapper files, apply build tags, and manage dependencies.
+-   **[Defining New Distributions](docs/configurations.md#1-configdistributionsyaml)**: Understand how to define new presets in `config/distributions.yaml`, including using base distributions.
 
 ## Current Custom Components
 
-*   **ClickHouse Exporter**: Enables exporting telemetry data directly to ClickHouse databases. ([docs/clickhouse.md](docs/clickhouse.md))
-*   **AWS S3 Exporter**: Enables exporting telemetry data directly to Amazon S3 buckets.
-*   **SignalToMetrics Connector**: Converts signal data (e.g., spans) into metrics. (`components/collector/lambdacomponents/connector/signaltometricsconnector.go`)
-*   *(Your custom component could be listed here!)*
+*   **ClickHouse Exporter**: Exports telemetry data to ClickHouse.
+*   **AWS S3 Exporter**: Exports telemetry data to Amazon S3.
+*   **SignalToMetrics Connector**: Converts signal data (e.g., spans) into metrics.
+
+See [Components](docs/components.md) for technical details on these wrappers and how they use build tags.
 
 ## Architecture
 
 The build system for Ocelot integrates multiple layers of tooling to streamline the creation and deployment of custom OpenTelemetry Lambda Layers. At its core, it leverages the upstream [OpenTelemetry Lambda](https://github.com/open-telemetry/opentelemetry-lambda) project's Makefile, which orchestrates the compilation of the OpenTelemetry Collector as a Go binary. This Makefile handles tasks such as cleaning previous builds, embedding version and Git metadata via linker flags, and packaging the resulting binary into a Lambda-compatible zip archive. The Go build process itself uses specific build tags to include or exclude components, enabling highly customizable collector builds tailored for serverless environments.
 
-Complementing this, Ocelot introduces a suite of Python scripts and libraries that automate and extend the upstream build process. These Python tools handle cloning the upstream repository, applying overlays of custom Go components, resolving build tags based on user-selected distributions, and managing AWS interactions such as publishing Lambda layers across multiple regions. They provide a flexible CLI (`tools/ocelot.py`) that abstracts away the complexity of manual Makefile invocation, environment setup, and AWS CLI commands. This layered approach allows developers to rapidly iterate on custom components, automate multi-region publishing, and maintain alignment with upstream changes—all without directly modifying the upstream build system.
+Complementing this, Ocelot introduces a suite of Python scripts and libraries that automate and extend the upstream build process. These Python tools handle cloning the upstream repository, applying overlays of custom Go components, resolving build tags based on user-selected distributions, and managing AWS interactions such as publishing Lambda layers across multiple regions. They provide a flexible CLI (`tools/ocelot.py`) that abstracts away the complexity of manual Makefile invocation, environment setup, and AWS CLI commands. This layered approach allows developers to rapidly iterate on custom components, automate multi-region publishing, and maintain alignment with upstream changes—all without directly modifying the upstream build system. For a deep dive into the build flow and upstream integration, see [Architecture](docs/architecture.md) and [Upstream Integration](docs/upstream.md).
 
 ### Build and Deployment Workflows
 
@@ -308,7 +269,7 @@ Delete layers but keep DynamoDB records:
 uv run tools/delete-layers.py --pattern ocelot-dev --skip-dynamodb
 ```
 
-**Warning:** This tool performs destructive actions. Use `--dry-run` first to review what will be deleted.
+**Warning:** This tool performs destructive actions. Use `--dry-run` first to review what will be deleted. For details on this and other scripts, see [Tooling](docs/tooling.md).
 
 ---
 
@@ -331,8 +292,19 @@ Contributions are welcome! Please follow this general workflow:
 
 To enable GitHub Actions in your fork to publish layers to your own AWS account, you need to configure AWS resources (IAM Role via OIDC, DynamoDB) and corresponding GitHub secrets.
 
-Detailed instructions and the necessary CloudFormation template are provided in the [**OIDC Setup Guide (oidc/README.md)**](./oidc/README.md).
+See the [**OIDC Setup Guide (docs/oidc.md)**](docs/oidc.md) for detailed instructions and the necessary CloudFormation template for secure GitHub Actions publishing.
 
+
+## Further Reading
+
+For more in-depth information, explore the detailed documentation:
+
+- [Architecture](docs/architecture.md): Detailed build process and overlay mechanism
+- [Components](docs/components.md): Custom Go components and build tags
+- [Configurations](docs/configurations.md): Distributions and dependencies
+- [Upstream Integration](docs/upstream.md): How Ocelot integrates with OpenTelemetry Lambda
+- [Build Tooling](docs/tooling.md): Python scripts and CI/CD workflows
+- [OIDC Setup](docs/oidc.md): Secure publishing with GitHub Actions and AWS
 
 ## License
 
