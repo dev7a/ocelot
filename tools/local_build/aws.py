@@ -13,7 +13,6 @@ from .exceptions import TerminateApp
 from .testing import inject_error
 
 
-
 def check_aws_credentials() -> bool:
     """
     Check if AWS credentials are configured correctly.
@@ -87,7 +86,6 @@ def get_aws_region() -> str:
             step_index=4,
             step_message="AWS region error",
         )
-
 
 
 @inject_error(step_index=4)

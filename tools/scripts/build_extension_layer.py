@@ -17,7 +17,7 @@ from pathlib import Path
 import yaml  # Import yaml for dependency config loading
 import click
 
-# Assuming otel_layer_utils is now under scripts/
+# Import utility modules
 from otel_layer_utils.distribution_utils import resolve_build_tags, DistributionError
 from otel_layer_utils.ui_utils import (
     header,

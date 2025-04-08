@@ -21,7 +21,7 @@ from typing import Optional, Tuple
 import click
 
 
-# Import UI utilities
+# Import utility modules
 from otel_layer_utils.ui_utils import (
     header,
     subheader,
@@ -34,9 +34,8 @@ from otel_layer_utils.ui_utils import (
     spinner,
     github_summary_table,
 )
-
-# Import DynamoDB utilities
 from otel_layer_utils.dynamodb_utils import DYNAMODB_TABLE_NAME, get_item, write_item
+from otel_layer_utils.github_utils import set_github_output
 
 # Import boto3 for AWS API operations
 try:
@@ -45,9 +44,6 @@ try:
 except ImportError:
     error("boto3 library not found", "Please install it: pip install boto3")
     sys.exit(1)
-
-# Import GitHub utilities
-from otel_layer_utils.github_utils import set_github_output
 
 # Default values
 DEFAULT_UPSTREAM_REPO = "open-telemetry/opentelemetry-lambda"
@@ -70,24 +66,6 @@ def calculate_md5(filename: str) -> str:
     md5_hash = spinner("Computing MD5 hash", compute_hash)
     success("MD5 Hash", md5_hash)
     return md5_hash
-
-
-def extract_layer_version_str(layer_name: str) -> str:
-    """Extracts the version part from the layer name heuristically."""
-    # This logic assumes the version is the last part after distribution/arch
-    # Example: custom-otel-collector-amd64-clickhouse-0_119_0 -> 0_119_0
-    parts = layer_name.split("-")
-    # Find the likely start of the version (usually after arch or distribution)
-    version_part = parts[-1]  # Start with the last part
-    # Basic check if it looks like a version (contains numbers/underscores/dots)
-    if re.search(r"[0-9._]", version_part):
-        return version_part
-    # Fallback or more complex logic might be needed if names vary wildly
-    warning(
-        f"Could not reliably extract version string from '{layer_name}'",
-        f"Using last part: '{version_part}'",
-    )
-    return version_part
 
 
 def construct_layer_name(

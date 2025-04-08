@@ -16,6 +16,7 @@ Like its namesake, **OCELOT** is small, fast, and sharp. This project offers a c
 - [Architecture](#architecture)
 - [Using the Ocelot Local Build Tool](#using-the-ocelot-local-build-tool)
 - [Managing and Cleaning Up Lambda Layers](#managing-and-cleaning-up-lambda-layers)
+- [Running Tests](#running-tests)
 - [Contributing](#contributing)
 - [Setting Up Your Fork for Automated Publishing](#setting-up-your-fork-for-automated-publishing)
 - [License](#license)
@@ -230,19 +231,19 @@ LOCAL_BUILD_INJECT_ERROR=clone_repository uv run tools/ocelot.py -d minimal
 
 ## Managing and Cleaning Up Lambda Layers
 
-The `tools/delete-layers.py` script helps you find and delete Lambda layers and associated DynamoDB records.
+The `tools/reaper.py` script helps you find and delete Lambda layers and associated DynamoDB records.
 
 ### Usage
 
 ```bash
-uv run tools/delete-layers.py [OPTIONS]
+uv run tools/reaper.py [OPTIONS]
 ```
 
 ### Common Options
 
 | Option | Description |
 |---------|-------------|
-| `--pattern` | Pattern to match layer names (required) |
+| `--pattern` | Pattern (glob) to match layer names (required) |
 | `--dry-run` | Preview deletions without making changes |
 | `--force` | Skip confirmation prompts |
 | `--regions` | Comma-separated list of AWS regions to target |
@@ -254,22 +255,88 @@ uv run tools/delete-layers.py [OPTIONS]
 Preview layers matching "ocelot-dev" without deleting:
 
 ```bash
-uv run tools/delete-layers.py --pattern ocelot-dev --dry-run
+uv run tools/reaper.py --pattern ocelot-dev --dry-run
 ```
 
 Delete all matching layers across `us-east-1` and `eu-west-1` without confirmation:
 
 ```bash
-uv run tools/delete-layers.py --pattern ocelot-dev --force --regions us-east-1,eu-west-1
+uv run tools/reaper.py --pattern ocelot-dev --force --regions us-east-1,eu-west-1
 ```
 
 Delete layers but keep DynamoDB records:
 
 ```bash
-uv run tools/delete-layers.py --pattern ocelot-dev --skip-dynamodb
+uv run tools/reaper.py --pattern ocelot-dev --skip-dynamodb
 ```
 
 **Warning:** This tool performs destructive actions. Use `--dry-run` first to review what will be deleted. For details on this and other scripts, see [Tooling](docs/tooling.md).
+
+## Running Tests
+
+The project includes a comprehensive test suite covering various components, utilities, and integration scenarios. Tests use `pytest` and are designed to run in isolation without requiring AWS credentials.
+
+### Setting Up the Test Environment
+
+```bash
+# Create and activate a virtual environment
+uv venv
+source .venv/bin/activate # Linux/macOS
+# .venv\Scripts\activate # Windows
+
+# Install test dependencies (includes main requirements plus testing packages)
+uv pip install -r tools/tests/requirements.txt
+```
+
+### Running the Tests
+
+```bash
+# Run all tests
+python -m pytest tools/tests
+
+# Run tests with coverage information
+python -m pytest tools/tests --cov=tools --cov-report=term-missing
+
+# Run specific test files
+python -m pytest tools/tests/test_distribution_utils.py
+
+# Run tests with verbose output
+python -m pytest tools/tests -v
+```
+
+### Import Strategy
+
+The test suite uses a path-manipulation approach in `conftest.py` to make imports work cleanly:
+
+```python
+# From tools/tests/conftest.py
+import sys
+from pathlib import Path
+
+# Add main tools directory to path for local_build modules
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Add scripts directory to path so otel_layer_utils is importable as a top-level package
+scripts_dir = Path(__file__).parent.parent / "scripts"
+sys.path.insert(0, str(scripts_dir.resolve()))
+```
+
+This strategy:
+1. Makes `otel_layer_utils` directly importable in both application code and tests
+2. Eliminates the need for conditional imports or import fallbacks
+3. Keeps the production code clean while handling import path resolution in the test environment
+
+### Testing Individual Components
+
+For detailed testing of specific utilities:
+
+```bash
+# Test build_extension_layer.py with coverage
+python -m pytest tools/tests/test_build_extension_layer.py -v --cov=tools.scripts.build_extension_layer --cov-report=term-missing
+
+# Test lambda_layer_publisher.py with coverage
+python -m pytest tools/tests/test_lambda_layer_publisher.py -v --cov=tools.scripts.lambda_layer_publisher --cov-report=term-missing
+```
 
 ---
 

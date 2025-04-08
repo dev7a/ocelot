@@ -23,7 +23,7 @@ def load_distributions(yaml_path: Path) -> Dict:
     try:
         with open(yaml_path, "r") as f:
             distributions_data = yaml.safe_load(f)
-        if not distributions_data:
+        if not distributions_data or not isinstance(distributions_data, dict):
             raise DistributionError(f"{yaml_path} is empty or invalid.")
         return distributions_data
     except yaml.YAMLError as e:
