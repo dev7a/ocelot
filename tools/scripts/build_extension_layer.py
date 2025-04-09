@@ -457,6 +457,10 @@ def add_dependencies(
     "--build-tags",
     help="Comma-separated list of build tags",
 )
+@click.option(
+    "--config-file",
+    help="Optional custom collector config file name (relative to config/collector-configs/)",
+)
 def main(
     upstream_repo,
     upstream_ref,
@@ -466,6 +470,7 @@ def main(
     keep_temp,
     upstream_version,
     build_tags,
+    config_file,
 ):
     """Build Custom OpenTelemetry Collector Lambda Layer."""
 
@@ -587,6 +592,31 @@ def main(
             info("No custom components to overlay", "Proceeding with build")
         else:
             success("Copied components", f"From {component_dir} to {upstream_dir}")
+
+        # Step 2.5: Copy custom config file if specified
+        if config_file:
+            custom_config_path = (
+                Path.cwd() / "config" / "collector-configs" / config_file
+            )
+            collector_dir = upstream_dir / "collector"
+            dest_config_path = collector_dir / "config.yaml"
+            if custom_config_path.is_file():
+                try:
+                    shutil.copy(custom_config_path, dest_config_path)
+                    success(
+                        "Custom collector config copied",
+                        f"{custom_config_path} -> {dest_config_path}",
+                    )
+                except Exception as e:
+                    warning(
+                        f"Failed to copy custom config file: {custom_config_path}",
+                        str(e),
+                    )
+            else:
+                warning(
+                    f"Custom config file not found: {custom_config_path}",
+                    "Using default upstream config.yaml",
+                )
 
         # Step 3: Add dependencies for custom components (if needed)
         subheader("Add dependencies")

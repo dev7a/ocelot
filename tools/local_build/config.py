@@ -139,7 +139,14 @@ def determine_build_tags(context: BuildContext, tracker) -> BuildContext:
         # Update the context
         context.set_build_tags(build_tags_string)
 
+        # Also check for optional custom config file
+        dist_info = context.distributions_data.get(context.distribution, {})
+        config_file = dist_info.get("config-file")
+        context.set_config_file(config_file)
+
         success("Determined build tags", build_tags_string)
+        if config_file:
+            success("Custom config file specified", config_file)
         tracker.complete_step(2, f"Tags: {build_tags_string}")
 
         return context

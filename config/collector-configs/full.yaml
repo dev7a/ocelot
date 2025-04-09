@@ -1,0 +1,78 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+  telemetryapi:
+
+processors:
+  attributes:
+    actions:
+      - key: cloud.provider
+        value: aws
+        action: upsert
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 100
+  resource:
+    attributes:
+      - key: environment
+        value: ${secretsmanager:otel/attributes#environment:-production}
+        action: upsert
+  span:
+    name:
+      from_attributes:
+        - db.operation
+        - http.route
+  coldstart:
+  decouple:
+
+exporters:
+  debug:
+    verbosity: detailed
+  otlp:
+    endpoint: "${secretsmanager:otel/endpoints#otlp}"
+    tls:
+      insecure: false
+  otlphttp:
+    endpoint: "${secretsmanager:otel/endpoints#otlphttp}"
+    tls:
+      insecure: false
+  prometheusremotewrite:
+    endpoint: "${secretsmanager:otel/endpoints#prometheus}"
+    tls:
+      insecure: false
+
+connectors:
+  signaltometrics:
+    metrics_flush_interval: 15s
+    dimensions:
+      - name: service.name
+      - name: operation
+
+extensions:
+  sigv4auth:
+    region: "${secretsmanager:otel/aws#region}"
+  basicauth:
+    client_auth:
+      username: "${secretsmanager:otel/auth#username}"
+      password: "${secretsmanager:otel/auth#password}"
+
+service:
+  extensions: [sigv4auth, basicauth]
+  pipelines:
+    traces:
+      receivers: [otlp, telemetryapi]
+      processors: [memory_limiter, attributes, resource, span, coldstart, decouple, batch]
+      exporters: [otlphttp, debug]
+    metrics:
+      receivers: [otlp, telemetryapi, signaltometrics]
+      processors: [memory_limiter, attributes, resource, batch]
+      exporters: [prometheusremotewrite, debug]
+    logs:
+      receivers: [otlp, telemetryapi]
+      processors: [memory_limiter, attributes, resource, batch]
+      exporters: [otlphttp, debug] 

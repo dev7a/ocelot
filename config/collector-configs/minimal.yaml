@@ -1,0 +1,35 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+  decouple:
+
+exporters:
+  otlphttp:
+    endpoint: "${secretsmanager:otel/endpoints#otlp}"
+    headers:
+      Authorization: "${secretsmanager:otel/auth#api-key}"
+      X-Tenant-ID: "${secretsmanager:otel/auth#tenant-id:-default}"
+    tls:
+      insecure: false
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, decouple]
+      exporters: [otlphttp]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp] 

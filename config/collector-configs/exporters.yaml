@@ -1,0 +1,47 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+  decouple:
+
+exporters:
+  otlphttp:
+    endpoint: "${secretsmanager:otel/endpoints#otlphttp}"
+    tls:
+      insecure: false
+  prometheusremotewrite:
+    endpoint: "${secretsmanager:otel/endpoints#prometheus}"
+    tls:
+      insecure: false
+  clickhouse:
+    endpoint: "tcp://clickhouse-server:9000"
+    database: "otel"
+    username: "${secretsmanager:otel/clickhouse#username}"
+    password: "${secretsmanager:otel/clickhouse#password}"
+  awss3:
+    s3uploader:
+      region: "${secretsmanager:otel/aws#region}"
+      s3_bucket: "${secretsmanager:otel/aws/s3#bucket}"
+      s3_prefix: "lambda-telemetry"
+      compression: "gzip"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, decouple]
+      exporters: [otlphttp, clickhouse, awss3]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheusremotewrite, clickhouse, awss3]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp, clickhouse, awss3] 

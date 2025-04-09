@@ -63,6 +63,10 @@ def build_layer(context: BuildContext, tracker) -> BuildContext:
         context.build_tags_string,
     ]
 
+    # If a custom config file is specified, pass it as an argument
+    if context.config_file:
+        build_cmd.extend(["--config-file", context.config_file])
+
     try:
         # Run build script (don't capture output by default, let it stream)
         run_command(build_cmd)

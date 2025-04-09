@@ -11,6 +11,7 @@ full:
   buildtags:
     - lambdacomponents.custom
     - lambdacomponents.all
+  config-file: full.yaml
 
 minimal:
   description: "OTLP receiver, Batch processor, Decouple processor, OTLP/HTTP exporter"
@@ -20,27 +21,32 @@ minimal:
     - lambdacomponents.processor.batch
     - lambdacomponents.processor.decouple
     - lambdacomponents.exporter.otlphttp
+  config-file: minimal.yaml
 
 clickhouse:
   description: "Minimal + ClickHouse exporter"
   base: minimal
   buildtags:
     - lambdacomponents.exporter.clickhouse
+  config-file: clickhouse.yaml
 
 exporters:
   description: "Distribution with all exporters and minimal components"
   base: minimal
   buildtags:
     - lambdacomponents.exporter.all
+  config-file: exporters.yaml
 
 s3export:
   description: "Minimal + AWS S3 exporter"
   base: minimal
   buildtags:
     - lambdacomponents.exporter.awss3
+  config-file: s3export.yaml
 
 signaltometrics:
   description: "Minimal + Signal to Metrics connector"
   base: minimal
   buildtags:
     - lambdacomponents.connector.signaltometrics
+  config-file: signaltometrics.yaml

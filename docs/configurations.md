@@ -15,6 +15,7 @@ The file is a YAML dictionary where each key is the unique name of a distributio
 -   `description` (String): A human-readable description of the distribution's purpose or contents.
 -   `buildtags` (List of Strings): A list of Go build tags to be activated when building this distribution. These tags control which Go files (especially the component wrappers in [`components/collector/lambdacomponents/`](./components.md)) are included in the compilation. (See [Components](./components.md))
 -   `base` (String, Optional): The name of another distribution from which to inherit `buildtags`. Tags from the `base` distribution are combined with the tags listed directly under `buildtags` for the current distribution.
+-   `config-file` (String, Optional): The filename of a custom OpenTelemetry Collector configuration YAML file, located inside `config/collector-configs/`. If specified, this file will be copied into the Lambda layer during the build, replacing the default upstream `config.yaml`. If omitted, the default upstream configuration is used.
 
 **Example Entry:**
 

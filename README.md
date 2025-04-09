@@ -86,6 +86,45 @@ Use `uv run tools/ocelot.py --help` for additional options, such as specifying a
 
 **Build Tag Mechanism:** The `lambdacomponents.custom` build tag is automatically included for all distributions except `default`, enabling the overlay mechanism. Distributions can inherit build tags from a `base` distribution defined in the configuration, promoting reuse and simplifying definitions. The final set of build tags used during compilation is the unique union of base tags and distribution-specific tags. For full details on distribution definitions and inheritance, see [Configurations](docs/configurations.md#1-configdistributionsyaml).
 
+**Custom Collector Configurations:**  
+Optionally, a distribution can specify a `config-file` property pointing to a YAML file inside `config/collector-configs/`. If provided, this file will be copied into the Lambda layer during the build, replacing the default upstream `config.yaml`. This allows you to customize the OpenTelemetry Collector configuration per distribution without modifying upstream sources. If omitted, the default upstream configuration is used.
+
+**Using AWS Secrets Manager for Secure Configuration:**  
+For sensitive configuration values (passwords, API keys, endpoints), we recommend using AWS Secrets Manager instead of environment variables. The configurations use the `secretsmanager` provider syntax:
+
+```yaml
+# OTLP exporter with authentication headers stored in Secrets Manager
+exporters:
+  otlphttp:
+    endpoint: "${secretsmanager:otel/endpoints#otlp}"
+    headers:
+      Authorization: "${secretsmanager:otel/auth#api-key}"  # API key or token
+      X-Tenant-ID: "${secretsmanager:otel/auth#tenant-id:-default}"  # With default value
+```
+
+Other examples:
+```yaml
+username: "${secretsmanager:otel/clickhouse#username:-default}"  # With default value
+password: "${secretsmanager:otel/clickhouse#password}"           # Required value
+region: "${secretsmanager:otel/aws#region}"                      # Single value secret
+```
+
+To create these secrets in AWS, use commands like:
+
+```bash
+# Create a JSON secret with multiple auth values
+aws secretsmanager create-secret \
+  --name otel/auth \
+  --secret-string '{"api-key":"Bearer eyJhbGciOiJ...","tenant-id":"customer-1234"}'
+
+# Create a simple string secret
+aws secretsmanager create-secret \
+  --name otel/endpoints/otlp \
+  --secret-string 'https://api.observability-platform.example.com/v1/traces'
+```
+
+The Lambda function requires `secretsmanager:GetSecretValue` permission in its execution role. This provides better security than environment variables, enabling centralized secret management and rotation.
+
 ### Upstream Default Components
 
 The `default` distribution includes the following standard components from `open-telemetry/opentelemetry-lambda`:

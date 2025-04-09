@@ -50,6 +50,9 @@ class BuildContext:
         self.dynamodb_region: Optional[str] = None
         self.start_time = None
 
+        # Optional custom config file name (relative, e.g., 'clickhouse.yaml')
+        self.config_file: Optional[str] = None
+
     def set_temp_dir(self, temp_dir: str) -> None:
         """Set the temporary directory for the upstream clone."""
         self.temp_upstream_dir = temp_dir
@@ -86,3 +89,7 @@ class BuildContext:
         if self.verbose:
             detail("Setting DynamoDB region", f"region={region}")
         self.dynamodb_region = region
+
+    def set_config_file(self, config_file: Optional[str]) -> None:
+        """Set the optional custom config file name."""
+        self.config_file = config_file
