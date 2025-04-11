@@ -223,11 +223,11 @@ def selective_copy_components(
 
         component_type_dir = component_type_dirs[component_type_prefix]
 
-        # Source and destination paths
-        source_type_dir = component_dir / component_type_dir
+        # Source and destination paths - use the collector/lambdacomponents structure to match upstream
+        source_type_dir = component_dir / "collector" / "lambdacomponents" / component_type_dir
         if not source_type_dir.is_dir():
             warning(
-                f"Component type directory not found: {source_type_dir}", "Skipping"
+                f"Component type directory not found: {source_type_dir}" "Skipping"
             )
             continue
 
@@ -355,8 +355,13 @@ def add_dependencies(
             failure_count = 0
 
             for module_path in modules_to_add:
-                versioned_module = f"{module_path}@{version_tag}"
-                status("Adding dependency", versioned_module)
+                # Check if module_path already contains a version specification
+                if "@" in module_path:
+                    versioned_module = module_path  # Use as-is if it already has a version
+                    status("Adding dependency with explicit version", versioned_module)
+                else:
+                    versioned_module = f"{module_path}@{version_tag}"  # Append upstream version
+                    status("Adding dependency with upstream version", versioned_module)
 
                 try:
                     # Use go mod edit for a more controlled approach
