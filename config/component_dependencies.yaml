@@ -15,8 +15,13 @@ dependencies:
   lambdacomponents.connector.signaltometrics:
     - github.com/open-telemetry/opentelemetry-collector-contrib/connector/signaltometricsconnector
 
+  # AWS Secrets Manager Auth extension
+  # Example of specifying a fixed version with @version syntax
+  lambdacomponents.extension.asmauthextension:
+    - github.com/dev7a/otelcol-ext-asmauth@v0.3.0
+
   # Add mappings for future custom components here
-  # Example:
+  # Examples:
   # lambdacomponents.processor.myprocessor:
-  #   - github.com/some-org/some-module/v2
-  #   - github.com/another-org/another-module
+  #   - github.com/some-org/some-module/v2  # Uses upstream version
+  #   - github.com/another-org/another-module@v1.2.3  # Uses fixed version

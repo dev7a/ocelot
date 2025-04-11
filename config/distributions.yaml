@@ -3,8 +3,26 @@
 # The 'base' property allows inheriting buildtags from another distribution.
 
 default:
-  description: "Standard upstream components"
-  buildtags: [] # Special case: Empty list means no custom tags
+  description: "Standard upstream components (explicit)"
+  buildtags:
+    - lambdacomponents.custom
+    - lambdacomponents.receiver.otlp
+    - lambdacomponents.receiver.telemetryapi
+    - lambdacomponents.exporter.debug
+    - lambdacomponents.exporter.otlp
+    - lambdacomponents.exporter.otlphttp
+    - lambdacomponents.exporter.prometheusremotewrite
+    - lambdacomponents.processor.attributes
+    - lambdacomponents.processor.filter
+    - lambdacomponents.processor.memory_limiter
+    - lambdacomponents.processor.probabilistic_sampler
+    - lambdacomponents.processor.resource
+    - lambdacomponents.processor.span
+    - lambdacomponents.processor.coldstart
+    - lambdacomponents.processor.decouple
+    - lambdacomponents.processor.batch
+    - lambdacomponents.extension.sigv4auth
+    - lambdacomponents.extension.basicauth
 
 full:
   description: "All available upstream and custom components"
@@ -43,6 +61,13 @@ s3export:
   buildtags:
     - lambdacomponents.exporter.awss3
   config-file: s3export.yaml
+
+asmauthextension:
+  description: "Default + AWS Secrets Manager Auth extension"
+  base: default
+  buildtags:
+    - lambdacomponents.extension.asmauthextension
+  config-file: asmauthextension.yaml
 
 signaltometrics:
   description: "Minimal + Signal to Metrics connector"
