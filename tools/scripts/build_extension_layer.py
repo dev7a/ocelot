@@ -373,6 +373,16 @@ def add_dependencies(
                     success_count += 1
                     success(f"Added dependency {versioned_module}")
                 except subprocess.CalledProcessError as e:
+                    # Import traceback module
+                    import traceback
+                    
+                    # Print all error details and backtrace
+                    print(f"Error adding dependency: {versioned_module}")
+                    print(f"Error message: {e.stderr.decode() if hasattr(e, 'stderr') else str(e)}")
+                    print(f"Command: {e.cmd if hasattr(e, 'cmd') else 'Unknown command'}")
+                    print(f"Return code: {e.returncode if hasattr(e, 'returncode') else 'Unknown'}")
+                    print("Traceback:")
+                    traceback.print_exc()
                     warning(
                         f"Failed to add dependency with exact version: {versioned_module}",
                         f"Error: {e.stderr if hasattr(e, 'stderr') else str(e)}",
@@ -410,6 +420,15 @@ def add_dependencies(
             info("No dependencies to add", "Skipping dependency management")
 
     except Exception as e:
+        # Import traceback module here as well to ensure it's available
+        import traceback
+        # Print all error details and backtrace
+        print(f"Error adding dependencies: {e}")
+        # For a generic Exception, it's safer to just print str(e) for details
+        # as it might not have stderr, cmd, returncode attributes.
+        print(f"Error details: {str(e)}") 
+        print("Traceback:")
+        traceback.print_exc()
         error("An unexpected error occurred during dependency management")
         detail("Detail", str(e))
         # Continue with the build process; it might still work

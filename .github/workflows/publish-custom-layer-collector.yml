@@ -211,6 +211,8 @@ jobs:
             --upstream-version "${{ needs.prepare-environment.outputs.collector_version }}" \
             --build-tags "${{ needs.prepare-environment.outputs.build_tags_string }}" \
             --output-dir ./build 
+        env:
+          COLUMNS: 120
 
       - name: Upload Collector Artifact
         uses: actions/upload-artifact@v4
