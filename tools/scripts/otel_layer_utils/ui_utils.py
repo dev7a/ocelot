@@ -15,6 +15,7 @@ All functions use a consistent style inspired by modern CLI tools.
 
 import click
 import os
+import sys # Import sys for isatty check
 from yaspin import yaspin as yaspin_func
 from yaspin.spinners import Spinners
 from typing import List, Dict, Any, Optional, Callable
@@ -64,6 +65,18 @@ COLORS = {
     "error": "bright_red",
     "warning": "yellow",
 }
+
+
+def _get_terminal_width() -> int:
+    """Get the terminal width, defaulting for non-TTY environments."""
+    if os.environ.get("GITHUB_ACTIONS") == "true" or not sys.stdout.isatty():
+        return 80  # GitHub Actions environment or non-TTY
+    if not sys.stdout.isatty():
+        return 80  # Not a TTY
+    try:
+        return os.get_terminal_size().columns
+    except OSError:
+        return 80  # Fallback if get_terminal_size fails for other reasons
 
 
 # Helper functions for internal use
@@ -832,7 +845,7 @@ def display_step_status(steps: List[Dict], title: str = "Build Process Steps") -
             # Check if message is a long, comma-separated list (like build tags)
             if len(message) > 80 and "," in message:
                 # Get the terminal width for proper formatting
-                term_width = os.get_terminal_size().columns if hasattr(os, "get_terminal_size") else 80
+                term_width = _get_terminal_width()
                 message_text = "\n" + format_long_text(message, max_width=term_width-4, indent="    ")
             else:
                 message_text = f" - {message}"
@@ -1070,7 +1083,7 @@ def display_command(label: str, command: str) -> None:
         command: The command string to display
     """
     # Get terminal width for formatting
-    term_width = os.get_terminal_size().columns if hasattr(os, "get_terminal_size") else 80
+    term_width = _get_terminal_width()
     
     # Format the command for display
     formatted_command = format_command(command, max_width=term_width-4)
