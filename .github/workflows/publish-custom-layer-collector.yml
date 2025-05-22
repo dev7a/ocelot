@@ -45,6 +45,7 @@ on:
           - minimal-asmauth
           - minimal-signaltometrics
           - minimal-spaneventtolog
+          - minimal-forwarder
       upstream-repo:
         description: 'Upstream OpenTelemetry Lambda repository'
         required: false
