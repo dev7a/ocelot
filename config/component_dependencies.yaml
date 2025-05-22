@@ -1,9 +1,10 @@
 # config/component_dependencies.yaml
 # Maps specific build tags to the Go module(s) they require.
-# The build script uses this to run 'go get' for necessary dependencies
+# The build script uses this to run 'go edit' and then 'go tidy' for necessary dependencies
 # only when the corresponding component is included in the build.
 dependencies:
-  # Build Tag: List of Go Module Paths (version will be appended by the script)
+  # Build Tag: List of additional Go Module Paths
+  # if not provided, the version will be appended based on the version of the collector
   lambdacomponents.exporter.clickhouse:
     - github.com/open-telemetry/opentelemetry-collector-contrib/exporter/clickhouseexporter
 
@@ -14,11 +15,15 @@ dependencies:
   # Signal to Metrics connector
   lambdacomponents.connector.signaltometrics:
     - github.com/open-telemetry/opentelemetry-collector-contrib/connector/signaltometricsconnector
+    
+  # Span Event to Log connector
+  lambdacomponents.connector.spaneventtolog:
+    - github.com/dev7a/otelcol-con-spaneventtolog@v0.3.1
 
   # AWS Secrets Manager Auth extension
   # Example of specifying a fixed version with @version syntax
   lambdacomponents.extension.asmauthextension:
-    - github.com/dev7a/otelcol-ext-asmauth@v0.3.0
+    - github.com/dev7a/otelcol-ext-asmauth@v0.5.1
 
   # Add mappings for future custom components here
   # Examples:

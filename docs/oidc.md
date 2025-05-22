@@ -1,6 +1,6 @@
 # OIDC Setup for GitHub Actions
 
-This document explains the OpenID Connect (OIDC) integration used to allow GitHub Actions workflows, particularly those running in user forks, to securely publish Ocelot Lambda layers to an AWS account.
+Securely automating your Ocelot build and deployment pipeline is obviously a good idea. This document details the OpenID Connect (OIDC) integration that enables GitHub Actions, particularly in user forks, to publish custom Lambda layers to your AWS account without the need for long-lived access keys. For definitions of technical terms, the [Ocelot Glossary](./glossary.md) can be a helpful reference.
 
 ## Purpose
 
@@ -33,6 +33,6 @@ The setup for a user fork involves:
 
 ## DynamoDB Table (`PublishedCustomCollectorExtensionLayers`)
 
--   **Purpose:** Stores metadata about published Lambda layers, likely used by scripts like [`generate_layers_report.py`](./tooling.md#6-other-scripts-toolstoolsscripts) and potentially by the publishing script to track existing versions. (See [Tooling](./tooling.md))
--   **Schema:** Uses a composite primary key (`pk`, `sk`) and potentially GSIs for flexible querying (e.g., finding layers by name/arch or by region/version).
+-   **Purpose:** Stores metadata about published Lambda layers, used by scripts like [`generate_layers_report.py`](./tooling.md#6-other-scripts-toolstoolsscripts) and by the publishing script to track existing versions. (See [Tooling](./tooling.md))
+-   **Schema:** Uses a composite primary key (`pk`, `sk`) and GSIs for flexible querying (e.g., finding layers by name/arch or by region/version).
 -   **Permissions:** The IAM role granted to GitHub Actions has full CRUD permissions on this specific table.

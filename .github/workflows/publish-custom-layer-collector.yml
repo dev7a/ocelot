@@ -40,11 +40,11 @@ on:
         options: # NOTE: This list MUST be kept in sync with config/distributions.yaml manually
           - default
           - minimal
-          - full
-          - clickhouse
-          - exporters
-          - s3export
-          - signaltometrics
+          - minimal-clickhouse
+          - minimal-s3export
+          - minimal-asmauth
+          - minimal-signaltometrics
+          - minimal-spaneventtolog
       upstream-repo:
         description: 'Upstream OpenTelemetry Lambda repository'
         required: false

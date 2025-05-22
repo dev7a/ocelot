@@ -1,8 +1,8 @@
 # Ocelot Go Components
 
-This document details the Go components defined within the Ocelot project (`components/collector/lambdacomponents/`). These components act as wrappers to selectively include functionality from the `opentelemetry-collector-contrib` repository based on Go build tags.
+This document describes Ocelot's Go components and their role in customizing the OpenTelemetry Collector. It explains how wrapper files in `components/collector/lambdacomponents/` use Go build tags to include features from the `opentelemetry-collector-contrib` repository. Understanding this is helpful for extending Ocelot or tailoring components. For definitions of key terms, the [Ocelot Glossary](./glossary.md) is available.
 
-See [Architecture](./architecture.md) for the overall build process and how these components are integrated.
+To understand how these components fit into the larger picture, please refer to the [Architecture](./architecture.md) document for details on the overall build process and integration points.
 
 ## Component Registration Pattern
 

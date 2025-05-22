@@ -1,6 +1,6 @@
 # Ocelot Collector Architecture
 
-This document provides a high-level overview of the Ocelot project architecture, focusing on how custom OpenTelemetry Collector distributions are built for AWS Lambda environments by extending the upstream `open-telemetry/opentelemetry-lambda` collector.
+This document outlines the system architecture of Ocelot. It explains the technical design and details how Ocelot constructs custom OpenTelemetry Collector distributions for AWS Lambda. Reading this will help you understand the build process mechanics, how Ocelot interacts with upstream sources, and the flow of components. This information can serve as a foundation for advanced customization or contributions. For clarity on specific terminology, the [Ocelot Glossary](./glossary.md) is a valuable companion.
 
 ## Table of Contents
 
@@ -40,7 +40,6 @@ graph TD
     I --> J[End: Layer Built];
 
     subgraph "Temporary Upstream Clone (/tmp/otel-upstream-*)"
-        style Upstream fill:#eee,stroke:#999,stroke-dasharray: 5 5
         D; F; G; H;
         direction LR
         subgraph "upstream/collector/"
@@ -56,7 +55,6 @@ graph TD
     end
 
     subgraph "Local Ocelot Project Files"
-        style Ocelot fill:#eef,stroke:#99f
         B; E;
         subgraph "ocelot/components/"
             O_LambdaComp[lambdacomponents/]
@@ -78,10 +76,6 @@ graph TD
     G -- Modifies --> U_GoMod;
     H -- Uses --> U_Makefile;
     H -- Uses --> U_LambdaComp;
-
-
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style J fill:#ccf,stroke:#333,stroke-width:2px
 ```
 
 **Key Stages:**
@@ -94,9 +88,9 @@ graph TD
 6.  **Output Handling (`scripts/build_extension_layer.py`):** Renames the generated zip file (e.g., `opentelemetry-collector-layer-amd64.zip`) to include the distribution name (e.g., `collector-amd64-clickhouse.zip`) and copies it to the designated output directory.
 7.  **Cleanup (`local_build/upstream.py`):** Removes the temporary directory containing the upstream clone unless explicitly requested otherwise.
 
-## Upstream Structure (`open-telemetry/opentelemetry-lambda/collector/`)
+## Upstream Structure
 
-The upstream collector directory contains:
+The [upstream collector](https://github.com/open-telemetry/opentelemetry-lambda/tree/main/collector) directory contains:
 -   `Makefile`, `Makefile.Common`: Build system files.
 -   `go.mod`, `go.sum`: Go module definition.
 -   `main.go`: Collector entry point.

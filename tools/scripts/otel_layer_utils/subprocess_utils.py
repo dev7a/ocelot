@@ -19,6 +19,7 @@ from .ui_utils import (
     error,
     warning,
     command_output_block,
+    display_command,
 )
 
 
@@ -51,8 +52,9 @@ def run_command(
     """
     command_str = " ".join(cmd)
 
-    # Display the command and directory
-    status("Command", command_str)
+    # Display the command and directory using the improved formatter
+    display_command("Command", command_str)
+
     if cwd:
         detail("Directory", cwd)
 

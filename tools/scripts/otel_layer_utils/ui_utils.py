@@ -2,15 +2,15 @@
 UI utilities for command-line tools in the extension layer project.
 
 This module provides consistent formatting and display functions for CLI output using
-a Professional style with clear visual hierarchy. It includes:
+a modern style with clear visual hierarchy. It includes:
 
-- Header sections
-- Status messages
-- Progress indicators with spinners
+- Header sections with subtle indicators
+- Status messages with color coding
+- Progress indicators
 - Error and success notifications
 - Structured output
 
-All functions use a consistent style with prefixes and color coding to improve readability.
+All functions use a consistent style inspired by modern CLI tools.
 """
 
 import click
@@ -20,32 +20,39 @@ from yaspin.spinners import Spinners
 from typing import List, Dict, Any, Optional, Callable
 import time  # Add time module for tracking elapsed time
 import traceback
+import textwrap
+import shlex
+from pathlib import Path
 
 # STYLING CONFIGURATION
 # You can change these settings to modify the appearance across all scripts
 STYLE_CONFIG = {
     "uppercase_headers": False,  # Convert headers to uppercase
-    "header_prefix": "> ",  # Prefix for headers
-    "status_prefix": "  - ",  # Prefix for status messages
-    "detail_prefix": "    - ",  # Prefix for detail messages
-    "success_prefix": "✓ ",  # Prefix for success messages
-    "error_prefix": "✗ ",  # Prefix for error messages
-    "separator": " | ",  # Separator between label and value
+    "header_prefix": "> ",       # Prefix for section headers
+    "section_line": "─",         # Character for section separators
+    "status_prefix": "  ",       # Prefix for status messages (indentation)
+    "detail_prefix": "  • ",     # Prefix for detail messages
+    "success_prefix": "✓ ",      # Prefix for success messages 
+    "error_prefix": "✗ ",        # Prefix for error messages
+    "warning_prefix": "! ",      # Prefix for warning messages
+    "info_prefix": "i ",         # Prefix for info messages
+    "separator": " | ",          # Separator between label and value
     "table": {
-        "column_separator": " | ",  # Separator between table columns
-        "header_separator": "-",  # Character for header separator row
+        "column_separator": " │ ",  # Separator between table columns
+        "header_separator": "─",    # Character for header separator row
     },
     "steps": {
-        "pending_symbol": "○",  # Symbol for pending steps
-        "running_symbol": "◔",  # Symbol for running steps
-        "complete_symbol": "●",  # Symbol for completed steps
-        "failed_symbol": "✗",  # Symbol for failed steps
+        "pending_symbol": "○",      # Symbol for pending steps
+        "running_symbol": "◔",      # Symbol for running steps
+        "complete_symbol": "●",     # Symbol for completed steps
+        "failed_symbol": "✗",       # Symbol for failed steps
+        "prefix": "  ",             # Prefix for step items
     },
     "progress_bar": {
-        "filled_char": "█",  # Character for filled portion
-        "empty_char": "░",  # Character for empty portion
-        "width": 50,  # Default width of progress bar
-    },
+        "filled_char": "█",         # Character for filled portion
+        "empty_char": "░",          # Character for empty portion
+        "width": 50,               # Default width of progress bar
+    }
 }
 
 # Color definitions for consistent styling
@@ -130,7 +137,7 @@ def info(text: str, value: str) -> None:
         text: Info label
         value: Info value
     """
-    click.secho(f"{STYLE_CONFIG['status_prefix']}{text}", fg=COLORS["info"], nl=False)
+    click.secho(f"{STYLE_CONFIG['info_prefix']}{text}", fg=COLORS["info"], nl=False)
     click.echo(f"{STYLE_CONFIG['separator']}{value}")
 
 
@@ -251,7 +258,7 @@ def warning(text: str, details: Optional[str] = None) -> None:
         details: Optional warning details
     """
     click.secho(
-        f"{STYLE_CONFIG['status_prefix']}Warning", fg=COLORS["warning"], nl=False
+        f"{STYLE_CONFIG['warning_prefix']}Warning", fg=COLORS["warning"], nl=False
     )
     click.echo(f"{STYLE_CONFIG['separator']}{text}")
     if details:
@@ -582,7 +589,7 @@ class StepTracker:
 
             # Format the step line with appropriate styling
             click.secho(
-                f"{STYLE_CONFIG['detail_prefix']}{symbol} {step}{message}{time_info}",
+                f"{STYLE_CONFIG['steps']['prefix']}{symbol} {step}{message}{time_info}",
                 fg=self.colors[status],
                 bold=(status == "failed"),
             )
@@ -664,10 +671,10 @@ def log(message: str, level: str = "info", verbose_only: bool = False) -> None:
         prefix = f"{STYLE_CONFIG['detail_prefix']}DEBUG: "
         color = "cyan"  # Use cyan for debug messages
     elif level == "warning":
-        prefix = f"{STYLE_CONFIG['detail_prefix']}WARNING: "
+        prefix = f"{STYLE_CONFIG['warning_prefix']}WARNING: "
         color = COLORS.get("warning")
     elif level == "error":
-        prefix = f"{STYLE_CONFIG['detail_prefix']}ERROR: "
+        prefix = f"{STYLE_CONFIG['error_prefix']}ERROR: "
         color = COLORS.get("error")
 
     click.secho(f"{prefix}{message}", fg=color)
@@ -774,3 +781,308 @@ def summary_box(title: str, items: Dict[str, str], width: int = 80):
     for line in box_lines:
         click.secho(line, fg=COLORS["success"])
     click.echo()
+
+
+def display_step_status(steps: List[Dict], title: str = "Build Process Steps") -> None:
+    """Display a list of steps with their current status.
+    
+    Each step should be a dictionary with:
+    - 'name': Step name/description
+    - 'status': One of 'pending', 'running', 'complete', 'failed'
+    - 'message': Optional status message
+    - 'time': Optional time elapsed (in seconds)
+    
+    Args:
+        steps: List of step dictionaries
+        title: Title for the steps section
+    """
+    # Display section header
+    click.echo()
+    click.secho(f"{STYLE_CONFIG['header_prefix']}{title}", fg=COLORS["header"], bold=True)
+    
+    # Map status to symbols and colors
+    status_symbols = {
+        "pending": STYLE_CONFIG["steps"]["pending_symbol"],
+        "running": STYLE_CONFIG["steps"]["running_symbol"],
+        "complete": STYLE_CONFIG["steps"]["complete_symbol"],
+        "failed": STYLE_CONFIG["steps"]["failed_symbol"],
+    }
+    
+    status_colors = {
+        "pending": "bright_black",
+        "running": "bright_cyan",
+        "complete": "green",
+        "failed": "bright_red",
+    }
+    
+    # Display each step with appropriate styling
+    for step in steps:
+        name = step.get("name", "Unknown step")
+        status = step.get("status", "pending")
+        message = step.get("message", "")
+        time_seconds = step.get("time", 0)
+        
+        # Format the time if present
+        time_info = ""
+        if time_seconds > 0:
+            time_info = f" ({format_elapsed_time(time_seconds)})"
+        
+        # Format the message if present
+        if message:
+            # Check if message is a long, comma-separated list (like build tags)
+            if len(message) > 80 and "," in message:
+                # Get the terminal width for proper formatting
+                term_width = os.get_terminal_size().columns if hasattr(os, "get_terminal_size") else 80
+                message_text = "\n" + format_long_text(message, max_width=term_width-4, indent="    ")
+            else:
+                message_text = f" - {message}"
+        else:
+            message_text = ""
+        
+        # Display the step with styling
+        symbol = status_symbols.get(status, "○")
+        
+        # First line with step name and timing
+        step_line = f"{STYLE_CONFIG['steps']['prefix']}{symbol} {name}{time_info}"
+        click.secho(step_line, fg=status_colors.get(status, "white"))
+        
+        # If there's a formatted message that's on multiple lines, display it separately
+        if message_text and message_text.startswith("\n"):
+            click.secho(message_text, fg="bright_black")
+
+
+def build_result_summary(build_info: Dict[str, Any]) -> None:
+    """Display a summary of build results.
+    
+    Args:
+        build_info: Dictionary containing build information
+    """
+    # Extract relevant information from build_info
+    build_status = build_info.get("status", "Unknown")
+    distribution = build_info.get("distribution", "Unknown")
+    architecture = build_info.get("architecture", "Unknown")
+    version = build_info.get("version", "Unknown")
+    output_file = build_info.get("output_file", "Unknown")
+    file_size = build_info.get("file_size", 0)
+    total_time = build_info.get("total_time", 0)
+    
+    # Format the summary items
+    items = {
+        "Status": build_status,
+        "Distribution": distribution,
+        "Architecture": architecture,
+        "Version": version,
+        "Output File": output_file,
+        "Size": format_file_size(file_size) if isinstance(file_size, (int, float)) else file_size,
+        "Build Time": format_elapsed_time(total_time) if isinstance(total_time, (int, float)) else total_time,
+    }
+    
+    # Display the summary box
+    summary_box("Build Result Summary", items, width=80)
+
+
+def process_stage(title: str, status: str = None) -> None:
+    """Display a process stage header with clean styling.
+    
+    Args:
+        title: Title of the process stage
+        status: Optional status message to display
+    """
+    click.echo()
+    click.secho(f"{STYLE_CONFIG['header_prefix']}{title}", fg=COLORS["header"], bold=True)
+    if status:
+        click.secho(f"{STYLE_CONFIG['status_prefix']}{status}", fg=COLORS["subheader"])
+
+
+def command_status(command: str, status: str, output: str = None, success: bool = True) -> None:
+    """Display a command execution status with clean styling.
+    
+    Args:
+        command: The command that was executed
+        status: Status message about the command
+        output: Optional command output to display
+        success: Whether the command succeeded
+    """
+    # Status symbol and color based on success flag
+    symbol = STYLE_CONFIG["success_prefix"] if success else STYLE_CONFIG["error_prefix"]
+    color = "green" if success else "bright_red"
+    
+    click.echo()
+    click.secho(f"{STYLE_CONFIG['detail_prefix']}Command | {command}", fg=COLORS["info"])
+    click.secho(f"{symbol}{status}", fg=color)
+    
+    if output:
+        # Format output if it's multiline
+        if "\n" in output:
+            lines = output.strip().split("\n")
+            for i, line in enumerate(lines):
+                # Limit number of lines shown to avoid overwhelming output
+                if i > 10 and len(lines) > 12:
+                    remaining = len(lines) - i
+                    click.secho(f"{STYLE_CONFIG['status_prefix']}... and {remaining} more lines", fg="bright_black")
+                    break
+                click.secho(f"{STYLE_CONFIG['status_prefix']}{line}", fg="bright_black")
+        else:
+            click.secho(f"{STYLE_CONFIG['status_prefix']}Output | {output}", fg="bright_black")
+
+
+def format_long_text(text: str, max_width: int = 80, indent: str = "  ", truncate: bool = False) -> str:
+    """Format long text to fit within a specified width.
+    
+    Args:
+        text: The text to format
+        max_width: Maximum width per line
+        indent: Indentation for wrapped lines
+        truncate: Whether to truncate with ellipsis instead of wrapping
+        
+    Returns:
+        Formatted text that fits within the specified width
+    """
+    if not text or len(text) <= max_width:
+        return text
+    
+    # If truncating, simply cut the text and add ellipsis
+    if truncate:
+        return text[:max_width-3] + "..."
+    
+    # For comma-separated lists (like component lists), format specially
+    if "," in text and not "\n" in text:
+        items = [item.strip() for item in text.split(",")]
+        
+        # If it looks like a list of components with common prefixes, format as a list
+        if len(items) > 3 and all(item.startswith(items[0].split('.')[0]) for item in items):
+            result = []
+            current_line = indent
+            
+            for item in items:
+                # If adding this item would exceed max width, start a new line
+                if len(current_line) + len(item) + 2 > max_width:
+                    result.append(current_line)
+                    current_line = indent + item
+                else:
+                    if current_line == indent:
+                        current_line += item
+                    else:
+                        current_line += ", " + item
+            
+            # Add the last line if it's not empty
+            if current_line != indent:
+                result.append(current_line)
+                
+            return "\n".join(result)
+    
+    # Otherwise, do standard word wrapping
+    words = text.split()
+    result = []
+    current_line = ""
+    
+    for word in words:
+        if len(current_line) + len(word) + 1 <= max_width:
+            current_line += " " + word if current_line else word
+        else:
+            result.append(current_line)
+            current_line = indent + word
+    
+    if current_line:
+        result.append(current_line)
+        
+    return "\n".join(result)
+
+
+def format_command(command: str, max_width: int = 80, indent: str = "    ") -> str:
+    """Format a command string for more readable display.
+    
+    This function handles long command lines with multiple arguments, particularly
+    for commands like 'python script.py' with many long arguments.
+    
+    Args:
+        command: The command string to format
+        max_width: Maximum line width before wrapping
+        indent: Indentation string for continuation lines
+        
+    Returns:
+        A formatted command string for display
+    """
+    # Return as-is if it's not a long command
+    if len(command) <= max_width:
+        return command
+    
+    # Try to detect command structure (executable + args)
+    try:
+        # Split the command into tokens respecting quotes
+        tokens = shlex.split(command)
+        
+        # If parsing failed or there's just one token, fall back to simple wrapping
+        if not tokens or len(tokens) < 2:
+            raise ValueError("Not a parseable command")
+        
+        # Get the executable/script part (first token)
+        executable = tokens[0]
+        
+        # For Python scripts with known path patterns, try to make it more readable
+        if 'python' in executable and len(tokens) > 1:
+            # If the second token is a script path, include it with the executable
+            script_path = tokens[1]
+            if script_path.endswith('.py'):
+                # Try to shorten the path for display
+                try:
+                    script_path = Path(script_path).name
+                except:
+                    pass
+                executable = f"{executable} {script_path}"
+                args = tokens[2:]
+            else:
+                args = tokens[1:]
+        else:
+            args = tokens[1:]
+        
+        # Format arguments - one per line with proper indentation
+        formatted_args = []
+        for arg in args:
+            # For args that look like --flag=value, keep them together
+            if arg.startswith('--') and '=' in arg:
+                formatted_args.append(f"{indent}{arg}")
+            # For consecutive flag/value pairs, group them when possible
+            elif arg.startswith('--') and not arg.startswith('--no-') and len(formatted_args) > 0:
+                last_arg = formatted_args[-1]
+                if not '=' in last_arg and not last_arg.startswith(indent + '--'):
+                    # Combine this flag with previous value
+                    formatted_args[-1] = f"{last_arg} {arg}"
+                    continue
+                formatted_args.append(f"{indent}{arg}")
+            else:
+                formatted_args.append(f"{indent}{arg}")
+                
+        # Join everything together
+        return f"{executable} \\\n" + " \\\n".join(formatted_args)
+    
+    except Exception:
+        # Fallback for any parsing errors - simple wrap
+        return textwrap.fill(command, width=max_width, subsequent_indent=indent, 
+                            break_on_hyphens=False, break_long_words=False)
+
+
+def display_command(label: str, command: str) -> None:
+    """Display a command with proper formatting for long commands.
+    
+    Args:
+        label: Label for the command (e.g., "Running command")
+        command: The command string to display
+    """
+    # Get terminal width for formatting
+    term_width = os.get_terminal_size().columns if hasattr(os, "get_terminal_size") else 80
+    
+    # Format the command for display
+    formatted_command = format_command(command, max_width=term_width-4)
+    
+    # Display with styling
+    click.echo()
+    click.secho(f"{STYLE_CONFIG['status_prefix']}{label} | ", fg=COLORS["subheader"], nl=False)
+    
+    # If the command is multiline, display differently
+    if "\n" in formatted_command:
+        click.echo()  # End the current line
+        for line in formatted_command.split('\n'):
+            click.secho(f"{STYLE_CONFIG['status_prefix']}  {line}", fg=COLORS["info"])
+    else:
+        click.echo(formatted_command)

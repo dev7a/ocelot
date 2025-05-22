@@ -1,8 +1,8 @@
 # Ocelot Configurations
 
-This document explains the YAML configuration files used by the Ocelot build tooling, located in the `config/` directory.
+Ocelot's behavior is primarily defined by its configuration files. This guide explains the YAML files in the `config/` directory, focusing on `distributions.yaml` and `component_dependencies.yaml`. These files control the composition and dependency management of the custom OpenTelemetry Collector. Understanding these configurations allows you to control the build process and tailor Ocelot distributions. For definitions of specialized terms, the [Ocelot Glossary](./glossary.md) is an excellent resource.
 
-See [Architecture](./architecture.md) for how these configurations fit into the overall build process.
+To see how these configurations integrate into the broader build system, consult the [Architecture](./architecture.md) document.
 
 ## 1. `config/distributions.yaml`
 
@@ -15,7 +15,7 @@ The file is a YAML dictionary where each key is the unique name of a distributio
 -   `description` (String): A human-readable description of the distribution's purpose or contents.
 -   `buildtags` (List of Strings): A list of Go build tags to be activated when building this distribution. These tags control which Go files (especially the component wrappers in [`components/collector/lambdacomponents/`](./components.md)) are included in the compilation. (See [Components](./components.md))
 -   `base` (String, Optional): The name of another distribution from which to inherit `buildtags`. Tags from the `base` distribution are combined with the tags listed directly under `buildtags` for the current distribution.
--   `config-file` (String, Optional): The filename of a custom OpenTelemetry Collector configuration YAML file, located inside `config/collector-configs/`. If specified, this file will be copied into the Lambda layer during the build, replacing the default upstream `config.yaml`. If omitted, the default upstream configuration is used.
+-   `config-file` (String, Optional): The filename of a custom OpenTelemetry Collector configuration YAML file, located inside `config/examples/`. If specified, this file will be copied into the Lambda layer during the build, replacing the default upstream `config.yaml`. If omitted, the default upstream configuration is used.
 
 **Example Entry:**
 
@@ -32,7 +32,7 @@ clickhouse:
 -   `default`: Represents the standard upstream build, typically with no custom Ocelot tags.
 -   `full`: Includes all available custom components (uses `lambdacomponents.custom` and `lambdacomponents.all`).
 -   `minimal`: Defines a base set of commonly used upstream components (e.g., OTLP receiver/exporter, batch processor). Specific Ocelot distributions often use `minimal` as their `base`.
--   Other distributions (e.g., `clickhouse`, `s3export`, `signaltometrics`): Build upon `minimal` by adding specific component tags.
+-   Other distributions typically are building upon `minimal` by adding specific component tags.
 
 **Usage:**
 

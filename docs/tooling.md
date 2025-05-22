@@ -1,8 +1,8 @@
 # Ocelot Build Tooling
 
-This document describes the Python scripts and modules located in the `tools/` directory, which are responsible for building and managing custom Ocelot collector distributions.
+These tools are used for both local development builds and the automated CI/CD workflows in GitHub Actions, orchestrating every step from interacting with upstream repositories to publishing your tailored Lambda layers. This guide is your key to understanding the operational mechanics of Ocelot. For definitions of common terms, please refer to the [Ocelot Glossary](./glossary.md).
 
-See [Architecture](./architecture.md) for the high-level build flow.
+For a higher-level understanding of how these tools fit into the project's structure, the [Architecture](./architecture.md) document provides essential context on the build flow.
 
 ## Table of Contents
 
@@ -21,7 +21,7 @@ See [Architecture](./architecture.md) for the high-level build flow.
 
 ## Overview
 
-The tooling provides a command-line interface (`ocelot.py`) to orchestrate the build process locally, mimicking the steps performed in CI/CD workflows (like GitHub Actions). It handles cloning the upstream repository, managing configurations, overlaying components, handling dependencies, invoking the build, and optionally publishing the resulting AWS Lambda layer.
+The tooling provides a command-line interface (`ocelot.py`) to orchestrate the build process locally, mimicking the steps performed in Github Actions CI/CD workflow. It handles cloning the upstream repository, managing configurations, overlaying components, handling dependencies, invoking the build, and optionally publishing the resulting AWS Lambda layer.
 
 ## Key Scripts and Modules
 

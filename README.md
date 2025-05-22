@@ -2,7 +2,9 @@
 > The **O**penTelemetry **C**ollector **E**xtension **L**ayer **O**ptimization **T**oolkit  
 > *A fast, flexible way to build custom Lambda Extension Layers.*
 
-Like its namesake, **OCELOT** is small, fast, and sharp. This project offers a customizable build system for AWS Lambda Extension Layers powered by the OpenTelemetry Collector. It leverages the excellent build tag system from the [OpenTelemetry Lambda project](https://github.com/open-telemetry/opentelemetry-lambda), making it easy to add custom observability components without forking or maintaining upstream code.
+Ocelot is a toolkit designed to simplify the creation of custom AWS Lambda Extension Layers for the OpenTelemetry Collector. It helps users add specific observability components or optimize their collector for particular use cases. Ocelot integrates with the [OpenTelemetry Lambda project](https://github.com/open-telemetry/opentelemetry-lambda) by leveraging its Go build tag system, which facilitates the inclusion of custom elements without requiring a direct fork of the upstream repository.
+
+This README provides an overview of Ocelot, covering setup, core concepts, customization, and contribution guidelines. For definitions of specialized terms, please consult the [Ocelot Glossary](docs/glossary.md).
 
 
 ## Table of Contents
@@ -19,6 +21,7 @@ Like its namesake, **OCELOT** is small, fast, and sharp. This project offers a c
 - [Running Tests](#running-tests)
 - [Contributing](#contributing)
 - [Setting Up Your Fork for Automated Publishing](#setting-up-your-fork-for-automated-publishing)
+- [Glossary](docs/glossary.md)
 - [License](#license)
 
 ## Overview: The Overlay Approach
@@ -54,76 +57,34 @@ To build layers locally, ensure you have the following prerequisites installed:
 **Build Steps:**
 
 ```bash
-# Navigate to the ocelot project directory
-# Set up a virtual environment and install dependencies
-uv venv
-source .venv/bin/activate # Linux/macOS
-# .venv\Scripts\activate # Windows
-uv pip install -r tools/requirements.txt
-
-# Execute the local build script
-# Specify the desired distribution (e.g., minimal, default, clickhouse, full)
 uv run tools/ocelot.py --distribution minimal
 ```
 
 This command performs the clone, overlay, build, and packaging steps for the `minimal` distribution and `amd64` architecture by default. It saves the resulting `.zip` file in the `build/` directory and publishes the layer to your configured default AWS region.
 
-Use `uv run tools/ocelot.py --help` for additional options, such as specifying architecture (`--arch`), target regions (`--region`), or skipping publishing (`--skip-publish`). For advanced CLI options and build tooling internals, see [Tooling](docs/tooling.md).
+Use `uv run tools/ocelot.py --help` for additional options, such as specifying architecture (`--architecture`), the upstream ref from which to build your custom collector (`--upstream-ref`), or skipping publishing (`--skip-publish`). For advanced CLI options and build tooling internals, see [Tooling](docs/tooling.md).
 
 ## Understanding Distributions
 
 **Ocelot** supports building different "distributions," which are pre-defined sets of OpenTelemetry Collector components tailored for specific use cases. These are defined in `config/distributions.yaml`.
 
-| Distribution     | Description                                                      | Base     | Build Tags                                                                                      |
-|------------------|------------------------------------------------------------------|----------|------------------------------------------------------------------------------------------------|
-| `default`        | Standard upstream components                                     | *none*   | *(empty)*                                                                                       |
-| `full`           | All available upstream and custom components                     | *none*   | `lambdacomponents.custom`, `lambdacomponents.all`                                               |
-| `minimal`        | OTLP receiver, Batch processor, Decouple processor, OTLP/HTTP exporter | *none*   | `lambdacomponents.custom`, `lambdacomponents.receiver.otlp`, `lambdacomponents.processor.batch`, `lambdacomponents.processor.decouple`, `lambdacomponents.exporter.otlphttp` |
-| `clickhouse`     | Minimal + ClickHouse exporter                                   | minimal  | `lambdacomponents.exporter.clickhouse`                                                          |
-| `exporters`      | All exporters plus minimal components                            | minimal  | `lambdacomponents.exporter.all`                                                                 |
-| `s3export`       | Minimal + AWS S3 exporter                                       | minimal  | `lambdacomponents.exporter.awss3`                                                               |
-| `signaltometrics`| Minimal + Signal to Metrics connector                           | minimal  | `lambdacomponents.connector.signaltometrics`                                                    |
+| Distribution | Description | Base | Build Tags |
+|-------------|-------------|------|------------|
+| `default` | Base upstream components | *none* | `lambdacomponents.custom`, `lambdacomponents.receiver.otlp`, `lambdacomponents.exporter.*`, `lambdacomponents.processor.*`, `lambdacomponents.extension.*` |
+| `full` | All available upstream and custom components | *none* | `lambdacomponents.custom`, `lambdacomponents.all` |
+| `minimal` | OTLP receiver, Batch processor, Decouple processor, OTLP/HTTP exporter | *none* | `lambdacomponents.custom`, `lambdacomponents.receiver.otlp`, `lambdacomponents.processor.batch`, `lambdacomponents.processor.decouple`, `lambdacomponents.exporter.otlphttp` |
+| `minimal-clickhouse` | Minimal + ClickHouse exporter | minimal | `lambdacomponents.exporter.clickhouse` |
+| `minimal-s3export` | Minimal + AWS S3 exporter | minimal | `lambdacomponents.exporter.awss3` |
+| `minimal-asmauth` | Minimal + AWS Secrets Manager Auth extension | minimal | `lambdacomponents.extension.asmauthextension` |
+| `minimal-signaltometrics` | Minimal + Signal to Metrics connector | minimal | `lambdacomponents.connector.signaltometrics` |
+| `minimal-spaneventtolog` | Minimal + Span Event to Log connector | minimal | `lambdacomponents.connector.spaneventtolog` |
+| `minimal-forwarder` | Minimal + Span Event to Log connector + AWS Secrets Manager Auth + Signal to Metrics | minimal | Multiple connectors and extensions intended specifically for the [Serverless OTLP forwarder](https://github.com/dev7a/serverless-otlp-forwarder) use case |
 
 **Build Tag Mechanism:** The `lambdacomponents.custom` build tag is automatically included for all distributions except `default`, enabling the overlay mechanism. Distributions can inherit build tags from a `base` distribution defined in the configuration, promoting reuse and simplifying definitions. The final set of build tags used during compilation is the unique union of base tags and distribution-specific tags. For full details on distribution definitions and inheritance, see [Configurations](docs/configurations.md#1-configdistributionsyaml).
 
 **Custom Collector Configurations:**  
-Optionally, a distribution can specify a `config-file` property pointing to a YAML file inside `config/collector-configs/`. If provided, this file will be copied into the Lambda layer during the build, replacing the default upstream `config.yaml`. This allows you to customize the OpenTelemetry Collector configuration per distribution without modifying upstream sources. If omitted, the default upstream configuration is used.
+Optionally, a distribution can specify a `config-file` property pointing to a YAML file inside `config/examples/`. If provided, this file will be copied into the Lambda layer during the build, replacing the default upstream `config.yaml`. This allows you to customize the OpenTelemetry Collector configuration per distribution without modifying upstream sources. If omitted, the default upstream configuration is used.
 
-**Using AWS Secrets Manager for Secure Configuration:**  
-For sensitive configuration values (passwords, API keys, endpoints), we recommend using AWS Secrets Manager instead of environment variables. The configurations use the `secretsmanager` provider syntax:
-
-```yaml
-# OTLP exporter with authentication headers stored in Secrets Manager
-exporters:
-  otlphttp:
-    endpoint: "${secretsmanager:otel/endpoints#otlp}"
-    headers:
-      Authorization: "${secretsmanager:otel/auth#api-key}"  # API key or token
-      X-Tenant-ID: "${secretsmanager:otel/auth#tenant-id:-default}"  # With default value
-```
-
-Other examples:
-```yaml
-username: "${secretsmanager:otel/clickhouse#username:-default}"  # With default value
-password: "${secretsmanager:otel/clickhouse#password}"           # Required value
-region: "${secretsmanager:otel/aws#region}"                      # Single value secret
-```
-
-To create these secrets in AWS, use commands like:
-
-```bash
-# Create a JSON secret with multiple auth values
-aws secretsmanager create-secret \
-  --name otel/auth \
-  --secret-string '{"api-key":"Bearer eyJhbGciOiJ...","tenant-id":"customer-1234"}'
-
-# Create a simple string secret
-aws secretsmanager create-secret \
-  --name otel/endpoints/otlp \
-  --secret-string 'https://api.observability-platform.example.com/v1/traces'
-```
-
-The Lambda function requires `secretsmanager:GetSecretValue` permission in its execution role. This provides better security than environment variables, enabling centralized secret management and rotation.
 
 ### Upstream Default Components
 
@@ -164,8 +125,8 @@ Extend **ocelot** with your own components and distributions. This involves plac
 
 For detailed step-by-step instructions, refer to:
 
--   **[Adding Custom Components](docs/components.md#adding-new-components)**: Learn how to create Go wrapper files, apply build tags, and manage dependencies.
--   **[Defining New Distributions](docs/configurations.md#1-configdistributionsyaml)**: Understand how to define new presets in `config/distributions.yaml`, including using base distributions.
+-   [Adding Custom Components](docs/components.md#adding-new-components): Learn how to create Go wrapper files, apply build tags, and manage dependencies.
+-   [Defining New Distributions](docs/configurations.md#1-configdistributionsyaml): Understand how to define new presets in `config/distributions.yaml`, including using base distributions.
 
 ## Current Custom Components
 
@@ -260,17 +221,13 @@ Build a minimal distribution for ARM64 without publishing:
 uv run tools/ocelot.py -d minimal -a arm64 --skip-publish
 ```
 
-Inject an error for testing:
-
-```bash
-LOCAL_BUILD_INJECT_ERROR=clone_repository uv run tools/ocelot.py -d minimal
-```
 
 ---
 
 ## Managing and Cleaning Up Lambda Layers
 
-The `tools/reaper.py` script helps you find and delete Lambda layers and associated DynamoDB records.
+> [!WARNING]
+> The `tools/reaper.py` script helps you find and delete Lambda layers and associated DynamoDB records. You can use it to clean up old layers and associated DynamoDB records, but keep in mind that it will delete all layers matching the pattern. Use it with caution. And probably you won't need it.
 
 ### Usage
 
@@ -291,16 +248,16 @@ uv run tools/reaper.py [OPTIONS]
 
 ### Examples
 
-Preview layers matching "ocelot-dev" without deleting:
+Preview layers matching "ocel-*" without deleting in all regions:
 
 ```bash
-uv run tools/reaper.py --pattern ocelot-dev --dry-run
+uv run tools/reaper.py --pattern "ocel-*" --dry-run
 ```
 
 Delete all matching layers across `us-east-1` and `eu-west-1` without confirmation:
 
 ```bash
-uv run tools/reaper.py --pattern ocelot-dev --force --regions us-east-1,eu-west-1
+uv run tools/reaper.py --pattern "ocel-*" --force --regions us-east-1,eu-west-1
 ```
 
 Delete layers but keep DynamoDB records:
@@ -396,21 +353,8 @@ Contributions are welcome! Please follow this general workflow:
 
 ## Setting Up Your Fork for Automated Publishing
 
-To enable GitHub Actions in your fork to publish layers to your own AWS account, you need to configure AWS resources (IAM Role via OIDC, DynamoDB) and corresponding GitHub secrets.
+To enable GitHub Actions in your fork to publish layers to your own AWS account, you need to configure AWS resources (IAM Role via OIDC, DynamoDB) and corresponding GitHub secrets. You can check the [oidc/README.md](oidc/README.md) file for detailed instructions on how to set it up on your fork.
 
-See the [**OIDC Setup Guide (docs/oidc.md)**](docs/oidc.md) for detailed instructions and the necessary CloudFormation template for secure GitHub Actions publishing.
-
-
-## Further Reading
-
-For more in-depth information, explore the detailed documentation:
-
-- [Architecture](docs/architecture.md): Detailed build process and overlay mechanism
-- [Components](docs/components.md): Custom Go components and build tags
-- [Configurations](docs/configurations.md): Distributions and dependencies
-- [Upstream Integration](docs/upstream.md): How Ocelot integrates with OpenTelemetry Lambda
-- [Build Tooling](docs/tooling.md): Python scripts and CI/CD workflows
-- [OIDC Setup](docs/oidc.md): Secure publishing with GitHub Actions and AWS
 
 ## License
 

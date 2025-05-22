@@ -464,7 +464,7 @@ def add_dependencies(
 )
 @click.option(
     "--config-file",
-    help="Optional custom collector config file name (relative to config/collector-configs/)",
+    help="Optional custom collector config file name (relative to config/examples/)",
 )
 def main(
     upstream_repo,
@@ -601,7 +601,7 @@ def main(
         # Step 2.5: Copy custom config file if specified
         if config_file:
             custom_config_path = (
-                Path.cwd() / "config" / "collector-configs" / config_file
+                Path.cwd() / "config" / "examples" / config_file
             )
             collector_dir = upstream_dir / "collector"
             dest_config_path = collector_dir / "config.yaml"

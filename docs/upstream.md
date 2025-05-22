@@ -1,8 +1,8 @@
 # Upstream Repository Integration
 
-This document describes how the Ocelot project integrates with its upstream base, the `open-telemetry/opentelemetry-lambda` repository.
+Ocelot builds upon the foundation provided by the upstream `open-telemetry/opentelemetry-lambda` repository. This document explains how Ocelot integrates with this upstream project, utilizing its source code and build system dynamically. The aim is to make it easier to create custom OpenTelemetry Collector versions for AWS Lambda without needing to maintain a separate fork of the upstream repository. Understanding this relationship is helpful for grasping how Ocelot works. For definitions of specific terms, the [Ocelot Glossary](./glossary.md) is a valuable resource.
 
-See [Architecture](./architecture.md) for the overall build process context.
+To see how this integration fits into the broader build system, please see the [Architecture](./architecture.md) document for the overall process context.
 
 ## Role of the Upstream Repository
 

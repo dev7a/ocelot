@@ -144,10 +144,13 @@ def determine_build_tags(context: BuildContext, tracker) -> BuildContext:
         config_file = dist_info.get("config-file")
         context.set_config_file(config_file)
 
+        # Use the already imported success function
         success("Determined build tags", build_tags_string)
         if config_file:
             success("Custom config file specified", config_file)
-        tracker.complete_step(2, f"Tags: {build_tags_string}")
+            
+        # For display in the step tracker, don't include the full tag list in the line
+        tracker.complete_step(2)
 
         return context
 
