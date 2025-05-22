@@ -1,10 +1,15 @@
 # OCELOT  
-> The **O**penTelemetry **C**ollector **E**xtension **L**ayer **O**ptimization **T**oolkit  
-> *A fast, flexible way to build custom Lambda Extension Layers.*
+#### The OpenTelemetry Collector Extension Layer Optimization Toolkit  
 
 Ocelot is a toolkit designed to simplify the creation of custom AWS Lambda Extension Layers for the OpenTelemetry Collector. It helps users add specific observability components or optimize their collector for particular use cases. Ocelot integrates with the [OpenTelemetry Lambda project](https://github.com/open-telemetry/opentelemetry-lambda) by leveraging its Go build tag system, which facilitates the inclusion of custom elements without requiring a direct fork of the upstream repository.
+It's both a CLI and a CI/CD pipeline on Github Action. You can use the CLI to build your own customized layers, and publish them to your account, or you can contribute to this repo to provide a customized configuration that you would think would be useful to share widely. 
+Layer are published to differnent regions (currently North America and EU only) and available as both ARM and Intel architectures in the releases section.
 
 This README provides an overview of Ocelot, covering setup, core concepts, customization, and contribution guidelines. For definitions of specialized terms, please consult the [Ocelot Glossary](docs/glossary.md).
+
+![OCELOT CLI and CI/CD](https://github.com/user-attachments/assets/bdfe0908-f2f1-4a5a-b3fa-34615fe3691c)
+*A fast, flexible way to build custom Lambda Extension Layers.*
+
 
 
 ## Table of Contents
@@ -148,8 +153,7 @@ The following diagrams illustrate the system's workflow for both automated (GitH
 
 ### GitHub Actions Workflow
 
-![image](https://github.com/user-attachments/assets/c1d9c276-ecea-49f3-ba61-5f19590a7402)
-
+<img alt="CI/CD with Github Actions" width="50%" align="right" src="https://github.com/user-attachments/assets/3d45467a-34b4-4929-9e30-9a2a309586c8">
 
 This diagram illustrates the **automated publishing workflow** using GitHub Actions:
 
@@ -164,7 +168,7 @@ This automation enables multi-architecture, multi-region publishing with minimal
 
 ### Local Development Workflow
 
-![image](https://github.com/user-attachments/assets/e9f827cb-9186-4c28-bdc6-68617b394738)
+<img alt="Local Development" width="50%" align="right" src="https://github.com/user-attachments/assets/1a824d39-2fcf-4bf7-9223-b706ba2502d9">
 
 This diagram illustrates the **local build and publish workflow** when running the Ocelot CLI tool:
 
