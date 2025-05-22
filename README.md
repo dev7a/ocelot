@@ -1,5 +1,5 @@
 # OCELOT  
-#### The OpenTelemetry Collector Extension Layer Optimization Toolkit  
+#### OpenTelemetry Collector Extension Layer Optimization Toolkit  
 *A fast, flexible way to build custom Lambda Extension Layers.*
 
 <img width="30%" align="right" src="https://github.com/user-attachments/assets/08fe0226-3b7f-4634-b962-f83411c7e0bf">
