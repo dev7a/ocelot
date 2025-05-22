@@ -240,8 +240,8 @@ jobs:
       distribution: ${{ needs.prepare-environment.outputs.distribution }}
       collector-version: ${{ needs.prepare-environment.outputs.collector_version }}
       build-tags: ${{ needs.prepare-environment.outputs.build_tags_string }} # Pass the string
-      make-public: ${{ github.event.inputs.set-to-public == true && 'true' || 'false' }}
-      dry-run: ${{ github.event.inputs.dry-run == true && 'true' || 'false' }}
+      make-public: ${{ github.event.inputs.set-to-public == 'true' }}
+      dry-run: ${{ github.event.inputs.dry-run == 'true' }}
     secrets: inherit
 
   # Job 4: Generate Reports
