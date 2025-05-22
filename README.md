@@ -1,10 +1,10 @@
 # OCELOT  
 #### The OpenTelemetry Collector Extension Layer Optimization Toolkit  
+*A fast, flexible way to build custom Lambda Extension Layers.*
 
+<img width="30%" align="right" src="https://github.com/user-attachments/assets/08fe0226-3b7f-4634-b962-f83411c7e0bf">
 Ocelot is a toolkit designed to simplify the creation of custom AWS Lambda Extension Layers for the OpenTelemetry Collector. It helps users add specific observability components or optimize their collector for particular use cases. Ocelot integrates with the [OpenTelemetry Lambda project](https://github.com/open-telemetry/opentelemetry-lambda) by leveraging its Go build tag system, which facilitates the inclusion of custom elements without requiring a direct fork of the upstream repository.
 
-![OCELOT CLI and CI/CD](https://github.com/user-attachments/assets/bdfe0908-f2f1-4a5a-b3fa-34615fe3691c)
-*A fast, flexible way to build custom Lambda Extension Layers.*
 
 `Ocelot` is both a CLI and a CI/CD pipeline on Github Action: you can use the CLI to build your own customized layers, and publish them to your own AWS account, or you can contribute to this repo providinga customized configuration that you think would be useful to share widely. 
 
