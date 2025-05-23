@@ -55,7 +55,7 @@ def generate_notes(distribution: str, collector_version: str, build_tags: str):
     """Queries DynamoDB and generates markdown release notes."""
 
     print(
-        f"Querying DynamoDB table '{DYNAMODB_TABLE_NAME}' for distribution={distribution} using GSI sk-pk-index...",
+        f"Querying DynamoDB table '{DYNAMODB_TABLE_NAME}' for distribution={distribution} using GSI 'distribution-index'...",
         file=sys.stderr,
     )
 

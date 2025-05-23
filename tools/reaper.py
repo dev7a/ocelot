@@ -171,18 +171,20 @@ def find_matching_layers(pattern: str) -> List[Dict]:
     return matching_layers
 
 
-def delete_dynamodb_record(layer_arn: str) -> bool:
+def delete_dynamodb_record(layer_arn: str, region: str) -> bool:
     """
     Delete a record from DynamoDB using the layer ARN as the primary key.
 
     Args:
         layer_arn: The ARN of the layer to delete from DynamoDB
+        region: The AWS region of the DynamoDB table
 
     Returns:
         bool: True if deletion was successful, False otherwise
     """
     try:
-        return delete_item(pk=layer_arn)
+        # Call the updated delete_item with layer_arn and region
+        return delete_item(layer_arn=layer_arn, region=region)
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
         if error_code == "ResourceNotFoundException":
@@ -288,7 +290,8 @@ def delete_layers(
                         with yaspin(
                             text=f"Deleting DynamoDB record for {layer_arn}..."
                         ) as sp:
-                            if delete_dynamodb_record(layer_arn):
+                            # Pass the current region to delete_dynamodb_record
+                            if delete_dynamodb_record(layer_arn, region=region):
                                 sp.ok("✓")
                                 dynamo_success += 1
                                 dynamo_versions_success += 1

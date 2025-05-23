@@ -432,19 +432,19 @@ def format_table(
     header_row = STYLE_CONFIG["table"]["column_separator"].join(
         str(h).ljust(w) for h, w in zip(headers, col_widths)
     )
-    click.secho(f"{STYLE_CONFIG['detail_prefix']}{header_row}", fg=COLORS["subheader"])
+    click.secho(f"\n{STYLE_CONFIG['status_prefix']}{header_row}", fg=COLORS["subheader"])
 
     # Print separator row
     sep_char = STYLE_CONFIG["table"]["header_separator"]
     sep_row = sep_char + sep_char + sep_char.join(sep_char * w for w in col_widths)
-    click.secho(f"{STYLE_CONFIG['detail_prefix']}{sep_row}", fg=COLORS["info"])
+    click.secho(f"{STYLE_CONFIG['status_prefix']}{sep_row}", fg=COLORS["info"])
 
     # Print data rows
     for row in rows:
         data_row = STYLE_CONFIG["table"]["column_separator"].join(
             str(c).ljust(w) for c, w in zip(row, col_widths)
         )
-        click.secho(f"{STYLE_CONFIG['detail_prefix']}{data_row}", fg=COLORS["info"])
+        click.secho(f"{STYLE_CONFIG['status_prefix']}{data_row}", fg=COLORS["info"])
 
 
 def progress_bar(

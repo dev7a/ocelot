@@ -11,7 +11,7 @@ from typing import Any
 
 
 def set_github_output(
-    name: str, value: Any, fail_on_error: bool = True, verbose: bool = False
+    name: str, value: Any, fail_on_error: bool = False, verbose: bool = False
 ) -> bool:
     """
     Sets an output variable for GitHub Actions with support for different value types.

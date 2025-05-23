@@ -93,29 +93,37 @@ Resources:
   PublishedCustomCollectorExtensionLayers:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Ref TableName
-      # Use On-Demand billing for simplicity, or provision throughput if usage is predictable
+      TableName: 'ocelot-layers'
       BillingMode: PAY_PER_REQUEST
       KeySchema:
-        - AttributeName: 'pk' # Partition Key (e.g., LayerName#Arch)
+        - AttributeName: 'layer_arn'
           KeyType: 'HASH'
-        - AttributeName: 'sk' # Sort Key (e.g., Region#Version)
-          KeyType: 'RANGE'
       AttributeDefinitions:
-        - AttributeName: 'pk'
+        - AttributeName: 'layer_arn'
           AttributeType: 'S'
-        - AttributeName: 'sk'
+        - AttributeName: 'distribution'
           AttributeType: 'S'
-      Optional: Define Global Secondary Indexes if needed for different query patterns
+        - AttributeName: 'base_layer_arn'
+          AttributeType: 'S'
+        - AttributeName: 'version'
+          AttributeType: 'N'
       GlobalSecondaryIndexes:
-        - IndexName: 'sk-pk-index' # Example: Query by Region/Version
+        - IndexName: 'distribution-index'
           KeySchema:
-            - AttributeName: 'sk'
+            - AttributeName: 'distribution'
               KeyType: 'HASH'
-            - AttributeName: 'pk'
+            - AttributeName: 'layer_arn'
               KeyType: 'RANGE'
           Projection:
-            ProjectionType: 'ALL' # Or 'KEYS_ONLY' or 'INCLUDE'
+            ProjectionType: 'ALL'
+        - IndexName: 'base-layer-index'
+          KeySchema:
+            - AttributeName: 'base_layer_arn'
+              KeyType: 'HASH'
+            - AttributeName: 'version'
+              KeyType: 'RANGE'
+          Projection:
+            ProjectionType: 'ALL'
 
 Outputs:
   GitHubOIDCProviderArn:

@@ -11,8 +11,9 @@ from typing import Dict, List, Optional
 from boto3.dynamodb.conditions import Key
 
 # Common constants
-DYNAMODB_TABLE_NAME = "custom-collector-extension-layers"
-GSI_NAME = "sk-pk-index"  # Global Secondary Index name
+DYNAMODB_TABLE_NAME = "ocelot-layers"
+GSI_DISTRIBUTION_INDEX = "distribution-index"
+GSI_BASE_LAYER_INDEX = "base-layer-index"
 
 
 def get_table(region: str = None):
@@ -65,7 +66,7 @@ def write_item(item: Dict, region: str = None) -> Dict:
     Write an item to the DynamoDB table.
 
     Args:
-        item: Item to write (must contain pk and sk)
+        item: Item to write (must contain 'layer_arn' as HASH key)
         region: Optional AWS region for DynamoDB.
                 If not provided, boto3 will use the region from environment variables or AWS config.
 
@@ -74,9 +75,10 @@ def write_item(item: Dict, region: str = None) -> Dict:
 
     Raises:
         ClientError: If the write operation fails
+        ValueError: If 'layer_arn' is missing from the item
     """
-    if "pk" not in item or "sk" not in item:
-        raise ValueError("Item must contain 'pk' and 'sk' attributes")
+    if "layer_arn" not in item:
+        raise ValueError("Item must contain 'layer_arn' attribute for the primary key")
 
     # Convert empty strings to None for DynamoDB (which doesn't accept empty strings)
     item_cleaned = {k: (None if v == "" else v) for k, v in item.items()}
@@ -89,12 +91,12 @@ def write_item(item: Dict, region: str = None) -> Dict:
     return response
 
 
-def get_item(pk: str, region: str = None) -> Optional[Dict]:
+def get_item(layer_arn: str, region: str = None) -> Optional[Dict]:
     """
-    Get an item from DynamoDB by its primary key.
+    Get an item from DynamoDB by its primary key (layer_arn).
 
     Args:
-        pk: Partition key value
+        layer_arn: The full ARN of the layer (primary HASH key)
         region: Optional AWS region for DynamoDB.
                 If not provided, boto3 will use the region from environment variables or AWS config.
 
@@ -105,19 +107,19 @@ def get_item(pk: str, region: str = None) -> Optional[Dict]:
         ClientError: If the get operation fails
     """
     table = get_table(region)
-    response = table.get_item(Key={"pk": pk})
+    response = table.get_item(Key={"layer_arn": layer_arn})
 
     if "Item" in response:
         return deserialize_item(response["Item"])
     return None
 
 
-def delete_item(pk: str, region: str = None) -> bool:
+def delete_item(layer_arn: str, region: str = None) -> bool:
     """
-    Delete an item from DynamoDB by its primary key.
+    Delete an item from DynamoDB by its primary key (layer_arn).
 
     Args:
-        pk: Partition key value
+        layer_arn: The full ARN of the layer (primary HASH key)
         region: Optional AWS region for DynamoDB.
                 If not provided, boto3 will use the region from environment variables or AWS config.
 
@@ -129,23 +131,25 @@ def delete_item(pk: str, region: str = None) -> bool:
     """
     table = get_table(region)
 
-    # Check if item exists first
-    response = table.get_item(Key={"pk": pk})
-    if "Item" not in response:
-        return True  # Nothing to delete
+    # Check if item exists first (using the new primary key structure)
+    # This get_item call is mainly to confirm existence before delete for a friendlier return.
+    # DynamoDB's delete_item itself is idempotent.
+    existing_item_response = table.get_item(Key={"layer_arn": layer_arn})
+    if "Item" not in existing_item_response:
+        return True  # Nothing to delete, considered successful
 
     # Delete the item
-    delete_response = table.delete_item(Key={"pk": pk})
+    delete_response = table.delete_item(Key={"layer_arn": layer_arn})
     status_code = delete_response.get("ResponseMetadata", {}).get("HTTPStatusCode")
     return status_code == 200
 
 
-def query_by_distribution(distribution: str, region: str = None) -> List[Dict]:
+def query_by_distribution(distribution_value: str, region: str = None) -> List[Dict]:
     """
-    Query items by distribution using the GSI.
+    Query items by distribution using the GSI 'distribution-index'.
 
     Args:
-        distribution: Distribution name to query
+        distribution_value: Distribution name to query
         region: Optional AWS region for DynamoDB.
                 If not provided, boto3 will use the region from environment variables or AWS config.
 
@@ -161,8 +165,8 @@ def query_by_distribution(distribution: str, region: str = None) -> List[Dict]:
 
     while True:
         query_args = {
-            "IndexName": GSI_NAME,
-            "KeyConditionExpression": Key("sk").eq(distribution),
+            "IndexName": GSI_DISTRIBUTION_INDEX,
+            "KeyConditionExpression": Key("distribution").eq(distribution_value),
         }
         if last_evaluated_key:
             query_args["ExclusiveStartKey"] = last_evaluated_key
@@ -171,6 +175,64 @@ def query_by_distribution(distribution: str, region: str = None) -> List[Dict]:
 
         for item in response.get("Items", []):
             items.append(deserialize_item(item))
+
+        last_evaluated_key = response.get("LastEvaluatedKey")
+        if not last_evaluated_key:
+            break
+
+    return items
+
+
+def query_by_base_layer_arn(
+    base_layer_arn_value: str,
+    region: str = None,
+    sort_ascending: bool = False,
+    limit: Optional[int] = None,
+) -> List[Dict]:
+    """
+    Query layer versions by base_layer_arn using the GSI 'base-layer-index'.
+    Useful for finding the latest version of a layer.
+
+    Args:
+        base_layer_arn_value: The base ARN of the layer (without the numeric version suffix).
+        region: Optional AWS region for DynamoDB.
+        sort_ascending: If True, sorts by version number in ascending order.
+                        If False (default), sorts in descending order (latest versions first).
+        limit: Optional maximum number of items to return.
+
+    Returns:
+        List[Dict]: List of layer versions matching the base_layer_arn.
+
+    Raises:
+        ClientError: If the query operation fails.
+    """
+    table = get_table(region)
+    items = []
+    last_evaluated_key = None
+
+    while True:
+        query_args = {
+            "IndexName": GSI_BASE_LAYER_INDEX,
+            "KeyConditionExpression": Key("base_layer_arn").eq(base_layer_arn_value),
+            "ScanIndexForward": sort_ascending,
+        }
+        if limit is not None and not last_evaluated_key:
+            if limit is not None:
+                query_args["Limit"] = limit
+
+        if last_evaluated_key:
+            query_args["ExclusiveStartKey"] = last_evaluated_key
+
+        response = table.query(**query_args)
+
+        for item in response.get("Items", []):
+            items.append(deserialize_item(item))
+            if limit is not None and len(items) >= limit:
+                last_evaluated_key = None
+                break 
+        
+        if limit is not None and len(items) >= limit:
+            break
 
         last_evaluated_key = response.get("LastEvaluatedKey")
         if not last_evaluated_key:

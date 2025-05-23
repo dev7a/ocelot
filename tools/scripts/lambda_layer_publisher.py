@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "boto3",
+#     "pyyaml",
+#     "click",
+#     "yaspin",
+# ]
+# ///
 """
 lambda_layer_publisher.py
 
@@ -34,7 +43,7 @@ from otel_layer_utils.ui_utils import (
     spinner,
     github_summary_table,
 )
-from otel_layer_utils.dynamodb_utils import DYNAMODB_TABLE_NAME, get_item, write_item
+from otel_layer_utils.dynamodb_utils import DYNAMODB_TABLE_NAME, get_item, write_item as dynamodb_utils_write_item
 from otel_layer_utils.github_utils import set_github_output
 
 # Import boto3 for AWS API operations
@@ -376,8 +385,10 @@ def make_layer_public(
 
 def write_metadata_to_dynamodb(
     dynamodb_region: str, metadata: dict, dry_run: bool = False
-) -> bool:
-    """Write the collected layer metadata to the DynamoDB table."""
+) -> str:  # Return status string
+    """Write the collected layer metadata to the DynamoDB table.
+    Returns: "SUCCESS", "SKIPPED_TABLE_NOT_FOUND", "FAILED_VALIDATION", "FAILED_AWS", "FAILED_OTHER"
+    """
     subheader("Writing metadata")
     status("Target table", DYNAMODB_TABLE_NAME)
 
@@ -385,59 +396,55 @@ def write_metadata_to_dynamodb(
         info("Dry Run", "Would write the following metadata to DynamoDB:")
         for key, value in metadata.items():
             detail(f"  {key}", str(value))
-        return True  # Assume success for dry run
+        return "SUCCESS" # Dry run is 'successful'
 
-    # Basic validation
     required_keys = [
-        "pk",
-        "sk",
-        "layer_arn",
-        "region",
-        "distribution",
-        "architecture",
-        "md5_hash",
+        "layer_arn", "distribution", "base_layer_arn", "version",
+        "region", "architecture", "md5_hash",
     ]
-    if not all(key in metadata and metadata[key] for key in required_keys):
-        error("Invalid metadata", "Missing required fields")
-        return False
+    if not all(key in metadata and metadata[key] is not None for key in required_keys):
+        missing_or_none_keys = [k for k in required_keys if k not in metadata or metadata[k] is None]
+        error(f"Invalid metadata for DynamoDB. Missing or None for required keys: {missing_or_none_keys}", str(metadata))
+        return "FAILED_VALIDATION"
 
-    # Ensure publish_timestamp is set
     if "publish_timestamp" not in metadata:
         metadata["publish_timestamp"] = datetime.now(timezone.utc).isoformat()
 
-    def write_to_dynamo():
+    def write_to_dynamo_op():
         try:
-            response = write_item(metadata, region=dynamodb_region)
-            return response
-        except ValueError as e:
-            error("Validation Error", str(e), exc_info=e)
-            return None
+            response = dynamodb_utils_write_item(metadata, region=dynamodb_region)
+            return response # Boto3 response dict
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code")
             if error_code == "ResourceNotFoundException":
-                error("AWS Error", str(e), exc_info=e)
-                detail("Detail", f"Table not found in {dynamodb_region}")
-            elif error_code == "AccessDeniedException":
-                error("AWS Error", str(e), exc_info=e)
-                detail("Detail", "Access denied - check IAM permissions")
+                warning("DynamoDB Write Skipped", f"Table '{DYNAMODB_TABLE_NAME}' not found in {dynamodb_region}.")
+                return "TABLE_NOT_FOUND" # Special marker
             else:
-                error("AWS Error", str(e), exc_info=e)
-            return None
+                error("AWS ClientError (DynamoDB)", str(e), exc_info=True)
+                return "AWS_ERROR" # Generic AWS error marker
+        except ValueError as e:
+             error("Data Validation Error (DynamoDB write)", str(e))
+             return "VALIDATION_ERROR"
         except Exception as e:
-            error("Error", str(e), exc_info=e)
-            return None
+            error("Unexpected Error during DynamoDB write", str(e), exc_info=True)
+            return "UNEXPECTED_ERROR"
 
-    response = spinner("Writing to DynamoDB", write_to_dynamo)
-    if response:
-        status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    result_or_status_marker = spinner("Writing to DynamoDB", write_to_dynamo_op)
+
+    if isinstance(result_or_status_marker, dict): # Successful Boto3 response
+        status_code = result_or_status_marker.get("ResponseMetadata", {}).get("HTTPStatusCode")
         if status_code == 200:
             success("Write successful", metadata["layer_arn"])
-            return True
+            return "SUCCESS"
         else:
-            error("Write failed", f"Status code: {status_code}")
-            return False
-
-    return False
+            error("Write failed", f"DynamoDB PutItem Non-200 HTTPStatusCode: {status_code}")
+            return "FAILED_OTHER" # Treat non-200 as a failure
+    elif result_or_status_marker == "TABLE_NOT_FOUND":
+        return "SKIPPED_TABLE_NOT_FOUND"
+    else: # Covers "AWS_ERROR", "VALIDATION_ERROR", "UNEXPECTED_ERROR", or any other unexpected string/None
+        # Error messages were already printed by write_to_dynamo_op
+        # Ensure a generic failure status is returned if not more specific
+        return "FAILED_OTHER"
 
 
 def create_github_summary(
@@ -498,12 +505,12 @@ def check_and_repair_dynamodb(
     status("Checking metadata", existing_layer_arn)
 
     # Perform the check even in dry run mode to see if repair *would* be needed
-    pk = existing_layer_arn
-    sk = args_dict["distribution"]
+    # The primary key for get_item is just the layer_arn itself now.
 
     def check_dynamodb():
         try:
-            item = get_item(pk)
+            # get_item now expects layer_arn as its first parameter
+            item = get_item(layer_arn=existing_layer_arn, region=dynamodb_region)
             return {"Item": item} if item else {}
         except ClientError as e:
             error("AWS Error", str(e), exc_info=e)
@@ -517,32 +524,46 @@ def check_and_repair_dynamodb(
     if response and "Item" not in response:
         info("Metadata missing", "Will repair record")
         status("Repairing record", "Creating new metadata")
+        
+        # Derive base_layer_arn and numeric version from existing_layer_arn for repair
+        try:
+            arn_parts = existing_layer_arn.split(':')
+            repair_base_layer_arn = ":".join(arn_parts[:-1])
+            repair_numeric_version = int(arn_parts[-1])
+        except (IndexError, ValueError) as e:
+            error(f"Could not parse existing_layer_arn for repair: {existing_layer_arn}", str(e))
+            return # Cannot proceed with repair if ARN is unparsable
+
         # Construct the metadata dictionary exactly as in the successful publish path
         metadata = {
-            "pk": pk,
-            "sk": sk,
-            "layer_arn": existing_layer_arn,
+            "layer_arn": existing_layer_arn, # HASH key
+            "distribution": args_dict["distribution"], # GSI distribution-index HASH key
+            "base_layer_arn": repair_base_layer_arn, # GSI base-layer-index HASH key
+            "version": repair_numeric_version,      # GSI base-layer-index RANGE key (number)
             "region": args_dict["region"],
-            "base_name": args_dict["layer_name"],
+            "base_name": args_dict["layer_name"], # This is the constructed layer name before AWS version
             "architecture": args_dict["architecture"],
-            "distribution": args_dict["distribution"],
-            "layer_version_str": layer_version_str,
-            "collector_version_input": args_dict["collector_version"],
+            "layer_version_str": layer_version_str, # Collector version (e.g., 0_126_0)
+            "collector_version_input": args_dict["collector_version"], # Input collector version (e.g., v0.126.0)
             "md5_hash": md5_hash,
             "publish_timestamp": datetime.now(timezone.utc).isoformat(),
+            "public": args_dict.get("public", True), # Get from args_dict, default if not present
             "compatible_runtimes": args_dict["runtimes"].split()
             if args_dict["runtimes"]
             else None,
         }
         # Attempt to write the missing record (or simulate in dry run)
-        write_success = write_metadata_to_dynamodb(
+        write_status = write_metadata_to_dynamodb(
             dynamodb_region, metadata, dry_run=dry_run
         )
-        if write_success:
+        if write_status == "SUCCESS":
             success("Repair complete" if not dry_run else "Dry Run: Repair simulated")
-        else:
+        elif write_status == "SKIPPED_TABLE_NOT_FOUND":
+            info("DynamoDB metadata write skipped during repair (table not found).")
+        else: # FAILED_VALIDATION, FAILED_AWS, FAILED_OTHER
             error(
-                "Repair failed" if not dry_run else "Dry Run: Repair simulation failed"
+                f"Repair failed (DynamoDB metadata write status: {write_status})" if not dry_run 
+                else f"Dry Run: Repair simulation failed (DynamoDB metadata write status: {write_status})"
             )
     elif response:
         info("Metadata exists", "No repair needed")
@@ -652,14 +673,12 @@ def main(
         collector_version,
         release_group,
     )
-
     # Step 2: Calculate MD5 hash
     subheader("Calculating MD5 hash")
     md5_hash = calculate_md5(artifact_name)
 
     # Step 3: Check if layer exists using Lambda API
     skip_publish, existing_layer_arn = check_layer_exists(layer_name, md5_hash, region)
-
     # Set output for GitHub Actions early
     set_github_output("skip_publish", str(skip_publish).lower())
 
@@ -671,10 +690,10 @@ def main(
         "layer_name": layer_name,
         "artifact_name": artifact_name,
         "region": region,
-        "architecture": architecture,
+        "architecture": architecture, # This is 'amd64' from input
         "runtimes": runtimes,
         "release_group": release_group,
-        "layer_version": layer_version,
+        "layer_version": layer_version, # This is None if not provided
         "distribution": distribution,
         "collector_version": collector_version,
         "public": make_public,
@@ -691,7 +710,7 @@ def main(
             arch_str,
             runtimes,
             build_tags=build_tags,
-            dry_run=dry_run,  # Pass dry_run flag
+            dry_run=dry_run,
         )
         if layer_arn:
             # Step 5: Make layer public only if explicitly requested and not in dry run
@@ -699,7 +718,7 @@ def main(
             if make_public:
                 public_success = make_layer_public(
                     layer_name, layer_arn, region, dry_run=dry_run
-                )  # Pass dry_run
+                ) 
             else:
                 info(
                     "Keeping layer private",
@@ -709,28 +728,43 @@ def main(
             if public_success:
                 # Step 5.5: Write Metadata for NEW layer to DynamoDB (or simulate in dry run)
                 info("Preparing metadata for new layer", "For DynamoDB storage")
+                
+                # Derive base_layer_arn and numeric version from the newly published layer_arn
+                try:
+                    new_arn_parts = layer_arn.split(':')
+                    new_base_layer_arn = ":".join(new_arn_parts[:-1])
+                    new_numeric_version = int(new_arn_parts[-1])
+                except (IndexError, ValueError) as e:
+                    error(f"Could not parse newly published layer_arn: {layer_arn}", str(e))
+                    # Decide how to handle this - maybe skip DynamoDB write or exit?
+                    # For now, let it proceed to write_metadata_to_dynamodb which might fail validation
+                    new_base_layer_arn = None 
+                    new_numeric_version = None
+
                 metadata = {
-                    "pk": layer_arn,
-                    "sk": distribution,
-                    "layer_arn": layer_arn,
+                    "layer_arn": layer_arn, # Full ARN from AWS - HASH Key for new schema
+                    "distribution": distribution, # GSI distribution-index HASH key
+                    "base_layer_arn": new_base_layer_arn, # GSI base-layer-index HASH key
+                    "version": new_numeric_version,          # GSI base-layer-index RANGE key (number)
                     "region": region,
-                    "base_name": layer_name,
+                    "base_name": layer_name, # This is the layer name passed to publish_layer, before AWS appends version
                     "architecture": architecture,
-                    "distribution": distribution,
-                    "layer_version_str": layer_version_str,
-                    "collector_version_input": collector_version,
+                    "layer_version_str": layer_version_str, # This is the cleaned collector version (e.g. 0_126_0)
+                    "collector_version_input": collector_version, # Original collector version input (e.g. v0.126.0)
                     "md5_hash": md5_hash,
                     "publish_timestamp": datetime.now(timezone.utc).isoformat(),
-                    "public": make_public,  # Track whether the layer is public
-                    # Store as a list instead of a set for DynamoDB List (L) type
+                    "public": make_public,
                     "compatible_runtimes": runtimes.split() if runtimes else None,
                 }
-                dynamo_success = write_metadata_to_dynamodb(
+                dynamo_op_status = write_metadata_to_dynamodb(
                     dynamodb_region, metadata, dry_run=dry_run
-                )  # Pass dry_run
-                if not dynamo_success and not dry_run:  # Only warn if not dry run
+                )
+                if dynamo_op_status == "SKIPPED_TABLE_NOT_FOUND":
+                    # Specific notice about skipping was already printed by write_metadata_to_dynamodb.
+                    pass # No further warning needed here.
+                elif dynamo_op_status != "SUCCESS" and not dry_run:
                     warning(
-                        "Layer published and made public, but failed to write metadata to DynamoDB"
+                        "Layer published, but an issue occurred with DynamoDB metadata (status: {dynamo_op_status})."
                     )
             else:
                 warning(
