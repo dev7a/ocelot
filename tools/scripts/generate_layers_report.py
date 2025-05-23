@@ -100,17 +100,22 @@ def process_dynamodb_items(items: List[Dict]) -> Dict:
     """
     Process the list of items fetched from DynamoDB and group them by
     distribution and architecture for the report.
+    This function passes through all AWS Lambda layer versions.
     """
     layers_by_dist_arch = {}
 
     for item in items:
-        # Items are already deserialized by our utility functions
         distribution = item.get("distribution", "unknown")
         architecture = item.get("architecture", "unknown")
         region = item.get("region", "unknown")
-        layer_arn = item.get("layer_arn", "N/A")  # Use layer_arn attribute directly
-        version = item.get("layer_version_str", "unknown")  # Use stored version string
-        timestamp = item.get("publish_timestamp", "Unknown")  # Use stored timestamp
+        layer_arn_full = item.get("layer_arn", "N/A")
+        # This 'version' is the collector version string (e.g., v0.126.0)
+        collector_version_str = item.get("layer_version_str", "unknown") 
+        timestamp = item.get("publish_timestamp", "Unknown")
+
+        if layer_arn_full == "N/A":
+            print(f"Skipping item with missing 'layer_arn': {item}", file=sys.stderr)
+            continue
 
         # Ensure architecture is in our known list, default to unknown
         if architecture not in ARCHITECTURES:
@@ -123,14 +128,14 @@ def process_dynamodb_items(items: List[Dict]) -> Dict:
         layers_by_dist_arch[key].append(
             {
                 "region": region,
-                "arn": layer_arn,
-                "version": version,
+                "arn": layer_arn_full,  # Full ARN including AWS Layer Version suffix
+                "version": collector_version_str,  # Collector version string
                 "timestamp": timestamp,
             }
         )
-
+    
     print(
-        f"Processed items into {len(layers_by_dist_arch)} distribution/architecture groups."
+        f"Processed and grouped {len(items)} items into {len(layers_by_dist_arch)} distribution/architecture groups."
     )
     return layers_by_dist_arch
 
@@ -139,7 +144,8 @@ def generate_report(
     layers_by_dist_arch: Dict, output_file: str = "LAYERS.md", pattern: str = None
 ):
     """
-    Generate a markdown report from the processed layer information.
+    Generate a markdown report from the processed layer information,
+    ensuring only the latest AWS Lambda Layer version is shown for each unique layer.
     """
     with open(output_file, "w") as f:
         f.write("# OpenTelemetry Lambda Layers Report\n")
@@ -178,41 +184,93 @@ def generate_report(
 
                 for arch in sorted_architectures:
                     key = f"{dist}:{arch}"
-                    if layers_by_dist_arch[key]:  # Check if list is not empty
+                    # Check if key exists and the list is not empty
+                    if key in layers_by_dist_arch and layers_by_dist_arch[key]:
                         f.write(f"#### {arch} Architecture\n\n")
+                        
+                        # --- Filter for latest AWS Lambda Layer Version ---
+                        current_group_layers = layers_by_dist_arch[key]
+                        latest_aws_versions_map = {} # Key: (base_arn, region), Value: layer_item
+
+                        for layer_item in current_group_layers:
+                            full_arn = layer_item.get("arn")
+                            item_region = layer_item.get("region")
+
+                            if not full_arn or full_arn == "N/A":
+                                print(f"Skipping layer item with invalid ARN: {layer_item}", file=sys.stderr)
+                                continue
+                            
+                            try:
+                                arn_parts = full_arn.split(':')
+                                if len(arn_parts) < 7: # Basic check for ARN structure (e.g. arn:partition:service:region:account-id:resource-type/resource-id or :layer:name:version)
+                                    # For layer ARNs, it's usually 7 or 8 parts if version is separate, or version is part of the 7th part.
+                                    # e.g., arn:aws:lambda:us-east-1:123456789012:layer:my-layer:1 (8 parts)
+                                    # or    arn:aws:lambda:us-east-1:123456789012:layer:my-layer (7 parts if no version in ARN explicitly listed in DB, though unlikely for this script)
+                                    # We expect the version to be the last part.
+                                    raise ValueError("ARN does not have enough parts to extract version.")
+
+                                base_arn = ":".join(arn_parts[:-1])
+                                aws_layer_version_num = int(arn_parts[-1])
+                            except (ValueError, IndexError) as e:
+                                print(f"Could not parse AWS layer version from ARN '{full_arn}': {e}. Skipping this item for 'latest' selection.", file=sys.stderr)
+                                continue # Skip if ARN not parsable for version
+
+                            unique_layer_key = (base_arn, item_region)
+                            
+                            # Store aws_layer_version_num in the item temporarily for comparison
+                            # This avoids modifying the original dict if it's shared, but for max(), it's fine.
+                            # We'll retrieve it from the stored item if this one becomes the candidate.
+                            
+                            current_max_item = latest_aws_versions_map.get(unique_layer_key)
+                            if not current_max_item:
+                                # Store a copy with the parsed version for future comparisons
+                                item_copy = dict(layer_item)
+                                item_copy['_aws_layer_version_num'] = aws_layer_version_num
+                                latest_aws_versions_map[unique_layer_key] = item_copy
+                            else:
+                                # Compare with the stored AWS layer version of the current max item
+                                if aws_layer_version_num > current_max_item['_aws_layer_version_num']:
+                                    item_copy = dict(layer_item)
+                                    item_copy['_aws_layer_version_num'] = aws_layer_version_num
+                                    latest_aws_versions_map[unique_layer_key] = item_copy
+                        
+                        layers_to_display = list(latest_aws_versions_map.values())
+                        # --- End filter ---
+
+                        if not layers_to_display:
+                            f.write("No layers to display for this architecture after filtering.\n\n")
+                            continue
+
+
                         f.write(
                             "| Region | Layer ARN | Version | Published (DB Timestamp) |\n"
-                        )  # Updated header
+                        )
                         f.write(
                             "|--------|-----------|---------|-------------------------|"
                         )
 
-                        # Sort by region for consistent output
-                        # Use ?.get('timestamp', '') to handle potential missing timestamp safely
+                        # Sort the filtered list by region and timestamp for consistent output
                         sorted_layers = sorted(
-                            layers_by_dist_arch[key],
+                            layers_to_display,
                             key=lambda x: (x.get("region", ""), x.get("timestamp", "")),
                         )
 
                         for layer in sorted_layers:
-                            # Format timestamp nicely if possible (assuming ISO format)
                             ts = layer.get("timestamp", "Unknown")
                             try:
-                                # Attempt to parse and format
                                 dt_obj = datetime.fromisoformat(
                                     ts.replace("Z", "+00:00")
                                 )
                                 formatted_ts = dt_obj.strftime("%Y-%m-%dT%H:%M:%S%Z")
                             except (ValueError, AttributeError):
-                                formatted_ts = (
-                                    ts  # Keep original if not parsable ISO format
-                                )
+                                formatted_ts = ts
 
+                            # The 'version' field here is the collector_version_str
                             f.write(
                                 f"\n| {layer.get('region', '?')} | `{layer.get('arn', 'N/A')}` | {layer.get('version', '?')} | {formatted_ts} |"
                             )
 
-                        f.write("\n\n")  # Ensure newline after table
+                        f.write("\n\n")
 
         f.write("## Usage Instructions\n\n")
         f.write(
@@ -244,13 +302,8 @@ def generate_report(
 def main(pattern, output):
     """Generate a markdown report of OpenTelemetry Lambda layers from DynamoDB"""
 
-    # Fetch raw layer items from DynamoDB
     all_items = fetch_layers_from_dynamodb(pattern)
-
-    # Process items into the structure needed for reporting
     layers_by_dist_arch = process_dynamodb_items(all_items)
-
-    # Generate the report
     generate_report(layers_by_dist_arch, output, pattern)
 
 
