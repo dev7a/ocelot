@@ -95,12 +95,27 @@ def generate_notes(distribution: str, collector_version: str, build_tags: str):
     # Get region information
     region_display_map = get_region_info()
 
-    # Attempt to get distribution_description from the first filtered item
-    dist_description_from_db = None
+    dist_description_from_db = None # Initialize
     if filtered_items:
-        # All items should have the same distribution_description if they match the distribution
-        # and collector_version, and if the publisher script populated it.
-        dist_description_from_db = filtered_items[0].get("distribution_description")
+        # Find the overall latest AWS layer version among these filtered_items
+        # to source the most up-to-date description for this collector_version release.
+        latest_item_for_description = None
+        max_aws_version = -1
+        for item_candidate in filtered_items:
+            full_arn = item_candidate.get("layer_arn")
+            if full_arn:
+                try:
+                    version_num = int(full_arn.split(':')[-1])
+                    if version_num > max_aws_version:
+                        max_aws_version = version_num
+                        latest_item_for_description = item_candidate
+                except (ValueError, IndexError):
+                    # Malformed ARN or version part, skip this candidate for description sourcing
+                    print(f"Warning: Could not parse AWS layer version from ARN '{full_arn}' while seeking description.", file=sys.stderr)
+                    continue 
+        
+        if latest_item_for_description:
+            dist_description_from_db = latest_item_for_description.get("distribution_description")
 
     # --- Generate Markdown Body ---
     # Use literal \n for multi-line strings passed to gh release create --notes
