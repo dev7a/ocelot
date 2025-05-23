@@ -50,7 +50,9 @@ minimal-s3export:
 
 
 minimal-forwarder:
-  description: "Minimal + Span Event to Log connector + AWS Secrets Manager Auth extension + Signal to Metrics connector"
+  description: |
+    Minimal + Span Event to Log connector + AWS Secrets Manager Auth extension + Signal to Metrics connector.
+    Intended for the [Serverless OTLP forwarder](https://github.com/dev7a/serverless-otlp-forwarder) use case.
   base: minimal
   config-file: forwarder.yaml
   buildtags:
