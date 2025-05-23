@@ -142,7 +142,7 @@ def generate_notes(distribution: str, collector_version: str, build_tags: str):
         body_lines.append("- Default (no specific tags)")
     body_lines.append("\n")  # Add blank line for spacing
 
-    body_lines.append("<details><summary>\n\n###Layer ARNs by Region (click to expand)\n\n</summary>\n")
+    body_lines.append("<details><summary>\n\n### Layer ARNs by Region (click to expand)\n\n</summary>\n")
     if not filtered_items:
         body_lines.append(
             "No matching layers found in the metadata store for this specific version and distribution.\n"
@@ -204,7 +204,7 @@ def generate_notes(distribution: str, collector_version: str, build_tags: str):
                         body_lines.append(
                             '<td><img src="https://img.shields.io/badge/arch-amd64-blue?style=for-the-badge" alt="amd64"></td>'
                         )
-                        body_lines.append(f"<td><pre>{arn}</pre></td>")
+                        body_lines.append(f"<td><code>{arn}</code></td>")
                         body_lines.append("</tr>")
 
                 # ARM64 layers - filter for latest AWS version
@@ -219,7 +219,7 @@ def generate_notes(distribution: str, collector_version: str, build_tags: str):
                         body_lines.append(
                             '<td><img src="https://img.shields.io/badge/arch-arm64-orange?style=for-the-badge" alt="arm64"></td>'
                         )
-                        body_lines.append(f"<td><pre>{arn}</pre></td>")
+                        body_lines.append(f"<td><code>{arn}</code></td>")
                         body_lines.append("</tr>")
 
             body_lines.append("</table>")
