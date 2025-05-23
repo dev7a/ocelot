@@ -39,6 +39,7 @@ on:
         default: 'default'
         options: # NOTE: This list MUST be kept in sync with config/distributions.yaml manually
           - default
+          - full
           - minimal
           - minimal-clickhouse
           - minimal-s3export
