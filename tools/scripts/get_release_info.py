@@ -18,6 +18,7 @@ Sets GitHub Actions outputs:
 - build_tags: The calculated, comma-separated build tags string.
 - collector_version: The input collector version (passed through).
 - distribution: The input distribution name (passed through).
+- distribution_description: The description of the distribution.
 """
 
 import os
@@ -59,14 +60,28 @@ print(f"Input Collector Version: {collector_version}")
 print(f"Input Release Group: {release_group}")
 print(f"Distribution Yaml Path: {yaml_path}")
 
-# Determine Build Tags
+# Determine Build Tags and Description
 build_tags = ""
+distribution_description = "" # Initialize description
 try:
     distributions_data = load_distributions(yaml_path)
-    # Resolve tags using the utility, handles base inheritance
+    
+    # Resolve build tags
     buildtags_list = resolve_build_tags(distribution, distributions_data)
-    # Filter out empty strings just in case resolve_build_tags returns them
     build_tags = ",".join(filter(None, buildtags_list))
+
+    # Extract description
+    if distributions_data and distribution in distributions_data:
+        distribution_info = distributions_data[distribution]
+        if isinstance(distribution_info, dict):
+            distribution_description = distribution_info.get("description", "")
+            if not distribution_description:
+                print(f"Warning: No 'description' field for distribution '{distribution}' in {yaml_path}.", file=sys.stderr)
+        else:
+            print(f"Warning: Distribution '{distribution}' in {yaml_path} is not structured as a dictionary.", file=sys.stderr)
+    else:
+        # This case should ideally be caught by load_distributions or resolve_build_tags if distribution is invalid
+        print(f"Warning: Distribution '{distribution}' not found after loading {yaml_path}, cannot retrieve description.", file=sys.stderr)
 
 except DistributionError as e:
     # Fail fast on any distribution processing error (file not found, dist not found, circular dep, etc.)
@@ -74,11 +89,12 @@ except DistributionError as e:
     sys.exit(1)
 except Exception as e:  # Catch any other unexpected errors during tag resolution
     print(
-        f"An unexpected error occurred while getting build tags: {e}", file=sys.stderr
+        f"An unexpected error occurred while getting build tags or description: {e}", file=sys.stderr
     )
     sys.exit(1)
 
 print(f"Determined Build Tags: '{build_tags}'")  # Quote for clarity if empty
+print(f"Determined Distribution Description: '{distribution_description}'")
 
 # Determine Release Tag and Title
 # Clean collector version for tag/name (remove 'v' prefix)
@@ -95,6 +111,7 @@ print("\nSetting GitHub Actions outputs...")
 set_github_output("tag", release_tag)
 set_github_output("title", release_title)
 set_github_output("build_tags", build_tags)
+set_github_output("distribution_description", distribution_description)
 set_github_output("collector_version", collector_version)  # Pass through
 set_github_output("distribution", distribution)  # Pass through
 set_github_output("release_group", release_group)  # Output release group

@@ -43,9 +43,6 @@ on:
           - minimal
           - minimal-clickhouse
           - minimal-s3export
-          - minimal-asmauth
-          - minimal-signaltometrics
-          - minimal-spaneventtolog
           - minimal-forwarder
       upstream-repo:
         description: 'Upstream OpenTelemetry Lambda repository'
@@ -88,6 +85,7 @@ jobs:
       release_title: ${{ steps.release_info.outputs.title }}
       build_tags_string: ${{ steps.release_info.outputs.build_tags }} # Comma-separated string
       distribution: ${{ steps.release_info.outputs.distribution }}
+      distribution_description: ${{ steps.release_info.outputs.distribution_description }}
       release_group: ${{ steps.release_info.outputs.release_group }}
       # Matrices for subsequent jobs
       build_jobs: ${{ steps.prepare-matrices.outputs.build_jobs }}
@@ -155,9 +153,9 @@ jobs:
         env:
           # Pass inputs to the script via environment variables
           DISTRIBUTION: ${{ github.event.inputs.distribution }}
-          INPUT_COLLECTOR_VERSION: ${{ steps.determine-version.outputs.collector_version }} # Use output from previous step
+          INPUT_COLLECTOR_VERSION: ${{ steps.determine-version.outputs.collector_version }}
           RELEASE_GROUP: ${{ github.event.inputs.release-group }}
-          DIST_YAML_PATH: config/distributions.yaml # Relative to repo root
+          DIST_YAML_PATH: config/distributions.yaml
         run: |
           python tools/scripts/get_release_info.py
 
@@ -239,8 +237,9 @@ jobs:
       aws-region: ${{ matrix.aws-region }}
       dynamodb-region: "us-east-1"
       distribution: ${{ needs.prepare-environment.outputs.distribution }}
+      distribution-description: ${{ needs.prepare-environment.outputs.distribution_description }}
       collector-version: ${{ needs.prepare-environment.outputs.collector_version }}
-      build-tags: ${{ needs.prepare-environment.outputs.build_tags_string }} # Pass the string
+      build-tags: ${{ needs.prepare-environment.outputs.build_tags_string }}
       make-public: ${{ github.event.inputs.set-to-public == 'true' }}
       dry-run: ${{ github.event.inputs.dry-run == 'true' }}
     secrets: inherit

@@ -69,6 +69,7 @@ def publish_layer(context: BuildContext, tracker) -> BuildContext:
         detail("Collector version", context.upstream_version)
         detail("Build tags", context.build_tags_string)
         detail("Make public", str(context.public).lower())
+        detail("Distribution Description (from config)", context.distribution_description_from_config or "[Not set in context]")
 
     # Sub-step: Execute Publish Script
     subheader("Publishing layer")
@@ -101,6 +102,10 @@ def publish_layer(context: BuildContext, tracker) -> BuildContext:
         "--build-tags",
         context.build_tags_string,
     ]
+
+    # Add distribution-description if available in context
+    if context.distribution_description_from_config:
+        publish_cmd.extend(["--distribution-description", context.distribution_description_from_config])
 
     try:
         # Run publish script

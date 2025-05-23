@@ -43,6 +43,7 @@ class BuildContext:
         self.upstream_version: Optional[str] = None
         self.build_tags_string: Optional[str] = None
         self.distributions_data: Dict = {}
+        self.distribution_description_from_config: Optional[str] = None
         self.layer_file: Optional[Path] = None
         self.layer_file_size: Optional[int] = None
         self.layer_arn: Optional[str] = None
@@ -68,6 +69,10 @@ class BuildContext:
     def set_distributions_data(self, data: Dict) -> None:
         """Set the distributions data."""
         self.distributions_data = data
+
+    def set_distribution_description_from_config(self, description: Optional[str]) -> None:
+        """Set the distribution description loaded from the config file."""
+        self.distribution_description_from_config = description
 
     def set_layer_file(self, file_path: Path, size: int) -> None:
         """Set the built layer file and its size."""

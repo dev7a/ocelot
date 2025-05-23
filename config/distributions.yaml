@@ -48,29 +48,11 @@ minimal-s3export:
   buildtags:
     - lambdacomponents.exporter.awss3
 
-minimal-asmauth:
-  description: "Minimal + AWS Secrets Manager Auth extension"
-  base: minimal
-  buildtags:
-    - lambdacomponents.extension.asmauthextension
-
-minimal-signaltometrics:
-  description: "Minimal + Signal to Metrics connector"
-  base: minimal
-  buildtags:
-    - lambdacomponents.connector.signaltometrics
-  config-file: signaltometrics.yaml
-
-minimal-spaneventtolog:
-  description: "Minimal + Span Event to Log connector"
-  base: minimal
-  buildtags:
-    - lambdacomponents.connector.spaneventtolog
-  config-file: spaneventtolog.yaml
 
 minimal-forwarder:
   description: "Minimal + Span Event to Log connector + AWS Secrets Manager Auth extension + Signal to Metrics connector"
   base: minimal
+  config-file: forwarder.yaml
   buildtags:
     - lambdacomponents.connector.spaneventtolog
     - lambdacomponents.extension.asmauthextension

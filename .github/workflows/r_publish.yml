@@ -41,13 +41,18 @@ on:
         required: false
         type: string
         default: 'default'
+      distribution-description:
+        description: 'Description of the distribution'
+        required: false
+        type: string
+        default: ''
       collector-version:
         description: 'Version of the OpenTelemetry collector (read from VERSION file)'
         required: false
         type: string
       build-tags:
         description: 'Comma-separated build tags used for the build'
-        required: false # Make optional in case it's not passed for some reason
+        required: false
         type: string
         default: ''
       make-public:
@@ -114,11 +119,9 @@ jobs:
 
       - name: Publish Lambda Layer
         id: publish-layer
-        env: # Pass only required inputs as environment variables
-          # Keep the PY_BUILD_TAGS environment variable as that's handled specially inside the script
+        env:
           PY_BUILD_TAGS: ${{ inputs.build-tags }}
         run: |
-          # Call the script with CLI parameters instead of environment variables
           python3 tools/scripts/lambda_layer_publisher.py \
             --layer-name "${{ inputs.layer-name }}" \
             --artifact-name "${{ inputs.artifact-name }}" \
@@ -129,6 +132,7 @@ jobs:
             --release-group "${{ inputs.release-group }}" \
             --layer-version "${{ inputs.layer-version }}" \
             --distribution "${{ inputs.distribution }}" \
+            --distribution-description "${{ inputs.distribution-description }}" \
             --collector-version "${{ inputs.collector-version }}" \
             --make-public ${{ inputs.make-public }} \
             --build-tags "${{ inputs.build-tags }}" \

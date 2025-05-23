@@ -3,7 +3,6 @@
 # requires-python = ">=3.9"
 # dependencies = [
 #     "boto3",
-#     "pyyaml",
 #     "click",
 #     "yaspin",
 # ]
@@ -59,7 +58,6 @@ DEFAULT_UPSTREAM_REPO = "open-telemetry/opentelemetry-lambda"
 DEFAULT_UPSTREAM_REF = "main"
 DEFAULT_DISTRIBUTION = "default"
 DEFAULT_ARCHITECTURE = "amd64"
-
 
 def calculate_md5(filename: str) -> str:
     """Calculate MD5 hash of a file."""
@@ -536,10 +534,11 @@ def check_and_repair_dynamodb(
 
         # Construct the metadata dictionary exactly as in the successful publish path
         metadata = {
-            "layer_arn": existing_layer_arn, # HASH key
-            "distribution": args_dict["distribution"], # GSI distribution-index HASH key
-            "base_layer_arn": repair_base_layer_arn, # GSI base-layer-index HASH key
-            "version": repair_numeric_version,      # GSI base-layer-index RANGE key (number)
+            "layer_arn": existing_layer_arn, 
+            "distribution": args_dict["distribution"], 
+            "distribution_description": args_dict.get("distribution_description"),
+            "base_layer_arn": repair_base_layer_arn, 
+            "version": repair_numeric_version,      
             "region": args_dict["region"],
             "base_name": args_dict["layer_name"], # This is the constructed layer name before AWS version
             "architecture": args_dict["architecture"],
@@ -622,6 +621,12 @@ def env_bool(env_var, default=False):
     help="Distribution name (default: default)",
 )
 @click.option(
+    "--distribution-description",
+    default=None,
+    type=str,
+    help="Description of the distribution (typically from config/distributions.yaml).",
+)
+@click.option(
     "--collector-version",
     help="Version of the OpenTelemetry collector included",
 )
@@ -652,6 +657,7 @@ def main(
     release_group,
     layer_version,
     distribution,
+    distribution_description,
     collector_version,
     make_public,
     build_tags,
@@ -662,6 +668,12 @@ def main(
     header("Lambda layer publisher")
     if dry_run:
         warning("Dry Run Mode Enabled", "No actual publishing will occur")
+
+    # Distribution description is now passed as an argument
+    if distribution_description:
+        info("Distribution Description", f'For "{distribution}": "{distribution_description}"')
+    else:
+        info("Distribution Description", f'Not provided for "{distribution}".')
 
     # Step 1: Construct layer name
     subheader("Constructing layer name")
@@ -682,43 +694,41 @@ def main(
     # Set output for GitHub Actions early
     set_github_output("skip_publish", str(skip_publish).lower())
 
-    layer_arn = existing_layer_arn  # Use existing ARN if found
-    dynamo_success = False
+    layer_arn_to_use = existing_layer_arn  # Use existing ARN if found
+    dynamo_op_status = "SKIPPED" # Default status if no operation attempted
 
-    # Store args in a dictionary for check_and_repair_dynamodb
     args_dict = {
-        "layer_name": layer_name,
+        "layer_name": layer_name, # This is the constructed name for publishing
         "artifact_name": artifact_name,
         "region": region,
-        "architecture": architecture, # This is 'amd64' from input
+        "architecture": architecture, # Original arch input, e.g., amd64
         "runtimes": runtimes,
         "release_group": release_group,
-        "layer_version": layer_version, # This is None if not provided
+        "layer_version": layer_version, # CLI input, can be None
         "distribution": distribution,
-        "collector_version": collector_version,
+        "distribution_description": distribution_description, # Use passed-in arg
+        "collector_version": collector_version, # CLI input, e.g., vX.Y.Z
         "public": make_public,
+        # Note: layer_version_str (cleaned collector_version for naming) is also available from construct_layer_name
+        # md5_hash is available directly
     }
 
     # Step 4: Publish layer if needed
     if not skip_publish:
         info("Publishing new layer version", "Creating new AWS Lambda layer")
-        layer_arn = publish_layer(
-            layer_name,
-            artifact_name,
-            md5_hash,
-            region,
-            arch_str,
-            runtimes,
-            build_tags=build_tags,
-            dry_run=dry_run,
+        published_layer_arn = publish_layer(
+            layer_name, artifact_name, md5_hash, region, arch_str, 
+            runtimes, build_tags=build_tags, dry_run=dry_run,
         )
-        if layer_arn:
+        layer_arn_to_use = published_layer_arn # Update to the newly published ARN
+
+        if published_layer_arn:
             # Step 5: Make layer public only if explicitly requested and not in dry run
             public_success = True
             if make_public:
                 public_success = make_layer_public(
-                    layer_name, layer_arn, region, dry_run=dry_run
-                ) 
+                    layer_name, published_layer_arn, region, dry_run=dry_run
+                )
             else:
                 info(
                     "Keeping layer private",
@@ -731,26 +741,27 @@ def main(
                 
                 # Derive base_layer_arn and numeric version from the newly published layer_arn
                 try:
-                    new_arn_parts = layer_arn.split(':')
+                    new_arn_parts = published_layer_arn.split(':')
                     new_base_layer_arn = ":".join(new_arn_parts[:-1])
                     new_numeric_version = int(new_arn_parts[-1])
                 except (IndexError, ValueError) as e:
-                    error(f"Could not parse newly published layer_arn: {layer_arn}", str(e))
+                    error(f"Could not parse newly published layer_arn: {published_layer_arn}", str(e))
                     # Decide how to handle this - maybe skip DynamoDB write or exit?
                     # For now, let it proceed to write_metadata_to_dynamodb which might fail validation
                     new_base_layer_arn = None 
                     new_numeric_version = None
 
                 metadata = {
-                    "layer_arn": layer_arn, # Full ARN from AWS - HASH Key for new schema
-                    "distribution": distribution, # GSI distribution-index HASH key
-                    "base_layer_arn": new_base_layer_arn, # GSI base-layer-index HASH key
-                    "version": new_numeric_version,          # GSI base-layer-index RANGE key (number)
+                    "layer_arn": published_layer_arn,
+                    "distribution": distribution,
+                    "distribution_description": distribution_description, # Use passed-in arg
+                    "base_layer_arn": new_base_layer_arn,
+                    "version": new_numeric_version,
                     "region": region,
-                    "base_name": layer_name, # This is the layer name passed to publish_layer, before AWS appends version
+                    "base_name": layer_name,
                     "architecture": architecture,
-                    "layer_version_str": layer_version_str, # This is the cleaned collector version (e.g. 0_126_0)
-                    "collector_version_input": collector_version, # Original collector version input (e.g. v0.126.0)
+                    "layer_version_str": layer_version_str,
+                    "collector_version_input": collector_version,
                     "md5_hash": md5_hash,
                     "publish_timestamp": datetime.now(timezone.utc).isoformat(),
                     "public": make_public,
@@ -764,11 +775,11 @@ def main(
                     pass # No further warning needed here.
                 elif dynamo_op_status != "SUCCESS" and not dry_run:
                     warning(
-                        "Layer published, but an issue occurred with DynamoDB metadata (status: {dynamo_op_status})."
+                        f"Layer published, but an issue occurred with DynamoDB metadata (status: {dynamo_op_status})."
                     )
             else:
                 warning(
-                    f"Layer {layer_arn} was published but could not be made public",
+                    f"Layer {published_layer_arn} was published but could not be made public",
                     "Skipping DynamoDB write",
                 )
         else:
@@ -783,28 +794,23 @@ def main(
     elif skip_publish and existing_layer_arn:
         subheader("Reusing existing layer")
         info(f"Layer with MD5 {md5_hash} already exists", existing_layer_arn)
-        layer_arn = existing_layer_arn  # Ensure layer_arn is set to the existing one
-
-        # Check/repair DynamoDB even in dry run mode to simulate the check
+        # layer_arn_to_use is already existing_layer_arn
         check_and_repair_dynamodb(
             dynamodb_region,
-            args_dict,
+            args_dict, # Pass the comprehensive args_dict
             existing_layer_arn,
             md5_hash,
-            layer_version_str,
-            dry_run=dry_run,  # Pass dry_run
+            layer_version_str, # This is the cleaned collector version from construct_layer_name
+            dry_run=dry_run,
         )
-        # Note: We don't set dynamo_success here, as the goal was just checking/repairing.
-        # The summary will correctly reflect 'Reused existing layer'.
-
-    # Set layer_arn output for GitHub Actions
-    if layer_arn:
-        set_github_output("layer_arn", layer_arn)
+    
+    if layer_arn_to_use:
+        set_github_output("layer_arn", layer_arn_to_use)
         subheader("Layer processing complete")
         create_github_summary(
             layer_name,
             region,
-            layer_arn,  # Use the ARN (new or existing)
+            layer_arn_to_use,  # Use the ARN (new or existing)
             md5_hash,
             skip_publish,  # Pass the result of the initial check
             artifact_name,

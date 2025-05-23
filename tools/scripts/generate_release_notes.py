@@ -95,12 +95,23 @@ def generate_notes(distribution: str, collector_version: str, build_tags: str):
     # Get region information
     region_display_map = get_region_info()
 
+    # Attempt to get distribution_description from the first filtered item
+    dist_description_from_db = None
+    if filtered_items:
+        # All items should have the same distribution_description if they match the distribution
+        # and collector_version, and if the publisher script populated it.
+        dist_description_from_db = filtered_items[0].get("distribution_description")
+
     # --- Generate Markdown Body ---
     # Use literal \n for multi-line strings passed to gh release create --notes
     body_lines = []
     body_lines.append(
         f"## Release Details for {distribution} - Collector {collector_version}\n"
     )
+
+    if dist_description_from_db:
+        body_lines.append(f"### Distribution Description\n")
+        body_lines.append(f"> {dist_description_from_db}\n\n") # Using blockquote for description
 
     body_lines.append("### Build Tags Used:\n")
     if build_tags:

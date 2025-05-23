@@ -8,7 +8,7 @@ from scripts.otel_layer_utils.distribution_utils import (
     resolve_build_tags,
     DistributionError,
 )
-from scripts.otel_layer_utils.ui_utils import success, error, header
+from scripts.otel_layer_utils.ui_utils import success, error, header, warning, info
 from .context import BuildContext
 from .exceptions import TerminateApp
 from .testing import inject_error
@@ -70,37 +70,71 @@ def load_distribution_choices() -> Tuple[List[str], Dict]:
 def load_distributions(context: BuildContext) -> BuildContext:
     """
     Load distribution configuration and store in context.
+    Also extracts the description for the current distribution.
 
     Args:
         context: The build context
 
     Returns:
-        BuildContext: Updated build context with distributions data
+        BuildContext: Updated build context with distributions data and description
 
     Raises:
-        TerminateApp: If distributions cannot be loaded
+        TerminateApp: If distributions data cannot be loaded (critical failure)
     """
     header("Loading distributions")
 
     try:
-        # Load distributions directly (don't call load_distribution_choices which would cause recursion)
         repo_root = Path().cwd()
         dist_yaml_path = repo_root / "config" / "distributions.yaml"
-
-        # Attempt to load distributions data
         distributions_data = _load_distributions_utils(dist_yaml_path)
-
-        # Update the context with the distributions data
         context.set_distributions_data(distributions_data)
-
-        return context
-    except Exception as e:
-        error("Failed to load distributions for context", str(e))
+    except Exception as e: # Catch critical errors from loading the main distributions data
+        error("CRITICAL: Failed to load distributions data from YAML", str(e))
         raise TerminateApp(
-            f"Failed to load distributions for context: {str(e)}",
-            step_index=None,  # This is called before tracker is initialized
+            f"CRITICAL: Failed to load distributions data: {str(e)}",
+            step_index=None, 
             step_message=None,
         )
+
+    # Now, safely attempt to extract the description for the current context.distribution
+    current_dist_name = context.distribution
+    dist_description = None
+    try:
+        # Ensure distributions_data was actually populated before trying to access it
+        if context.distributions_data and current_dist_name in context.distributions_data:
+            distribution_info = context.distributions_data[current_dist_name]
+            if isinstance(distribution_info, dict):
+                dist_description = distribution_info.get("description")
+            else:
+                warning(f"Data for distribution '{current_dist_name}' in config/distributions.yaml is not structured as a dictionary; cannot get description.")
+        else:
+            # This warning might be redundant if distribution name validity is checked by Click against loaded choices first,
+            # but kept for safety if context.distribution could somehow be out of sync with loaded data.
+            if context.distributions_data: # Only warn if data was loaded but key is missing
+                warning(f"Distribution '{current_dist_name}' not found in loaded YAML data (config/distributions.yaml); cannot retrieve description.")
+            # If context.distributions_data is empty, the critical error above would have already been raised.
+
+    except Exception as e:
+        # Catch any unexpected error during the description extraction specifically
+        warning(f"Non-critical error while trying to extract description for distribution '{current_dist_name}'", str(e))
+        # dist_description will remain None or its last state
+
+    context.set_distribution_description_from_config(dist_description)
+    
+    if dist_description:
+        success(f"Loaded description for '{current_dist_name}'", f'"{dist_description}"')
+    else:
+        # Refined info/warning based on why description might be missing
+        if context.distributions_data and current_dist_name in context.distributions_data and \
+           isinstance(context.distributions_data.get(current_dist_name), dict) and \
+           "description" not in context.distributions_data[current_dist_name]:
+            info(f"No 'description' field found for distribution '{current_dist_name}' in config.")
+        elif not (context.distributions_data and current_dist_name in context.distributions_data):
+            # This case should have been covered by warnings above about dist not found in data.
+            info(f"Description for '{current_dist_name}' not available (distribution not found or data malformed).")
+        # else: already covered by other warnings or success message
+
+    return context
 
 
 @inject_error(step_index=2)

@@ -91,14 +91,6 @@ def run_command(
         capture_output=capture_output,
     )
 
-    # --- BEGIN ADDED DEBUGGING ---
-    if capture_output:
-        if process.stdout:
-            print(f"--- RAW STDOUT ---\n{process.stdout}\n--- END RAW STDOUT ---")
-        if process.stderr:
-            print(f"--- RAW STDERR ---\n{process.stderr}\n--- END RAW STDERR ---")
-    # --- END ADDED DEBUGGING ---
-
     # Handle the output
     failed = process.returncode != 0
 
