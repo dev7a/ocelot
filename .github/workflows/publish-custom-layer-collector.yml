@@ -370,14 +370,10 @@ jobs:
             echo "Release with tag '$TAG_NAME' already exists. Deleting it..."
             gh release delete "$TAG_NAME" --yes
             echo "Existing release '$TAG_NAME' deleted."
-            # Note: Deleting the release does NOT automatically delete the underlying git tag.
-            # If you also need to delete and recreate the git tag, you would add:
-            # echo "Deleting git tag '$TAG_NAME' locally and remotely..."
-            # git tag -d "$TAG_NAME" || echo "Local tag '$TAG_NAME' not found or already deleted."
-            # git push origin --delete "$TAG_NAME" || echo "Remote tag '$TAG_NAME' not found or already deleted."
-            # echo "Git tag '$TAG_NAME' deleted."
-            # However, deleting and re-pushing tags can be disruptive if others have already fetched it.
-            # For now, we'll just delete the GitHub Release object.
+            echo "Deleting git tag '$TAG_NAME' locally and remotely..."
+            git tag -d "$TAG_NAME" || echo "Local tag '$TAG_NAME' not found or already deleted."
+            git push origin --delete "$TAG_NAME" || echo "Remote tag '$TAG_NAME' not found or already deleted."
+            echo "Git tag '$TAG_NAME' deleted."
           else
             echo "No existing release found with tag '$TAG_NAME'."
           fi
