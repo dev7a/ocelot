@@ -61,7 +61,7 @@ on:
         description: 'Release group (e.g., prod, beta, alpha)'
         required: false
         type: string
-        default: 'prod'
+        default: 'beta'
       dry-run:
         description: 'Dry run (skip publishing)'
         required: false
