@@ -227,7 +227,21 @@ def publish_layer(
     # Construct description
     description = md5_hash
     if build_tags:
-        description += f" | {build_tags}"
+        # Split the original build_tags string into a list
+        tags_list = build_tags.split(',')
+        
+        # Process each tag: strip "lambdacomponents." prefix and whitespace
+        processed_tags = []
+        for tag in tags_list:
+            tag = tag.strip() # Remove leading/trailing whitespace
+            # Replace the prefix "lambdacomponents." with an empty string
+            processed_tags.append(tag.replace("lambdacomponents.", ""))
+        
+        # Join the processed tags with ", "
+        formatted_build_tags = ", ".join(processed_tags)
+        
+        description += f" | {formatted_build_tags}" # Append the formatted tags
+        
     # Truncate description if it exceeds AWS limit (256 chars)
     if len(description) > 256:
         description = description[:253] + "..."
