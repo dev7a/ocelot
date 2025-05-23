@@ -225,7 +225,7 @@ def publish_layer(
         return simulated_arn
 
     # Construct description
-    description = md5_hash
+    description = f"md5: {md5_hash}"
     if build_tags:
         # Split the original build_tags string into a list
         tags_list = build_tags.split(',')
