@@ -1,0 +1,231 @@
+:root {
+  --primary-hue: 0deg;
+  --primary-saturation: 0%;
+  --primary-lightness: 50%;
+}
+
+/* Hero Section Styles - Full Width & Theme Aware with Background Parallax */
+body .hero-section {
+  background-image: url('/ocelot/images/ocelot-hero.jpg') !important;
+  background-size: 130% auto !important;
+  background-position: center 0px;
+  background-repeat: no-repeat !important;
+  height: 50vh !important;
+  min-height: 400px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  margin: 0 !important;
+  margin-bottom: 3rem !important;
+  width: 100vw !important;
+  margin-left: calc(-50vw + 50%) !important;
+  overflow: hidden !important;
+  filter: grayscale(75%) !important;
+}
+
+html[class~="dark"] body .hero-section {
+  filter: grayscale(75%) !important;
+}
+
+body .hero-section::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  z-index: 1 !important;
+}
+
+/* Dark theme overlay - no overlay (alpha 0) */
+html[class~="dark"] body .hero-section::before {
+  background: rgba(0, 0, 0, 0) !important;
+}
+
+body .hero-content {
+  position: relative !important;
+  z-index: 2 !important;
+  text-align: center !important;
+  max-width: 800px !important;
+  padding: 2rem !important;
+}
+
+body .hero-title {
+  font-size: 3rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 1rem !important;
+  color: #fff !important;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7) !important;
+}
+
+body .hero-subtitle {
+  font-size: 1.5rem !important;
+  font-weight: 500 !important;
+  margin-bottom: 1rem !important;
+  line-height: 1.4 !important;
+  color: #fff !important;
+}
+
+body .hero-description {
+  font-size: 1.1rem !important;
+  font-weight: 400 !important;
+  margin-bottom: 2rem !important;
+  line-height: 1.5 !important;
+  color: #fff !important;
+  opacity: 0.9 !important;
+}
+
+/* Dark theme text (light text) */
+html[class~="dark"] body .hero-title,
+html[class~="dark"] body .hero-subtitle,
+html[class~="dark"] body .hero-description {
+  color: #fff !important;
+}
+
+body .hero-cta {
+  display: inline-flex !important;
+  gap: 1rem !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  margin-top: 40% !important;
+}
+
+body p.hero-description {
+  font-size: 1.5rem !important;  
+}
+
+
+body .hero-button {
+  display: inline-block !important;
+  padding: 0.75rem 2rem !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  border-radius: 0.5rem !important;
+  transition: all 0.3s ease !important;
+}
+
+body .hero-button-primary {
+  background-color: #3b82f6 !important;
+  color: white !important;
+  border: 2px solid #3b82f6 !important;
+}
+
+body .hero-button-primary:hover {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4) !important;
+}
+
+/* Light theme secondary button - solid white background for better readability */
+body .hero-button-secondary {
+  background-color: white !important;
+  color: #1f2937 !important;
+  border: 2px solid white !important;
+}
+
+body .hero-button-secondary:hover {
+  background-color: #f3f4f6 !important;
+  color: #1f2937 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Dark theme secondary button - solid dark background */
+html[class~="dark"] body .hero-button-secondary {
+  background-color: #1f2937 !important;
+  color: white !important;
+  border: 2px solid #1f2937 !important;
+}
+
+html[class~="dark"] body .hero-button-secondary:hover {
+  background-color: #374151 !important;
+  color: white !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(31, 41, 55, 0.4) !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  body .hero-section {
+    height: 40vh !important;
+    min-height: 300px !important;
+  }
+  
+  body .hero-title {
+    font-size: 2rem !important;
+  }
+  
+  body .hero-subtitle {
+    font-size: 1.25rem !important;
+  }
+  
+  body .hero-description {
+    font-size: 1rem !important;
+  }
+  
+  body .hero-content {
+    padding: 1rem !important;
+  }
+  
+  body .hero-cta {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.75rem !important;
+  }
+  
+  body .hero-button {
+    width: 140px !important;
+    text-align: center !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  body .hero-section {
+    height: 35vh !important;
+    min-height: 250px !important;
+  }
+  
+  body .hero-title {
+    font-size: 1.5rem !important;
+  }
+  
+  body .hero-subtitle {
+    font-size: 0.5rem !important;
+    text-align: left !important;
+  }
+  
+  body p.hero-description {
+    font-size: 1.2rem !important;  
+  }
+  
+  body .hero-cta {
+    gap: 0.5rem !important;
+  }
+  
+  body .hero-button {
+    width: 120px !important;
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Hide page title on homepage */
+.content > h1:first-child,
+.hextra-content h1:first-child,
+main h1:first-of-type {
+  display: none !important;
+}
+
+/* Smooth scrolling enhancement */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth !important;
+  }
+} 

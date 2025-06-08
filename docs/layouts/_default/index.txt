@@ -1,0 +1,36 @@
+# {{ .Site.Title }}
+
+> An OpenTelemetry observability platform designed for AWS Lambda and serverless applications
+
+## About
+
+This documentation covers ocelot, an OpenTelemetry observability platform that provides comprehensive telemetry collection, processing, and export capabilities with minimal performance overhead for AWS Lambda and serverless applications.
+
+## Documentation Index
+
+### Main Documentation
+{{ range (where .Site.RegularPages "Type" "docs") }}{{ if not (in .RelPermalink "/cli/") }}- **{{ .Title }}** ({{ .Permalink }})
+  {{ .Summary | plainify | truncate 300 }}
+
+{{ end }}{{ end }}
+
+### CLI Reference  
+{{ range (where .Site.RegularPages "Type" "docs") }}{{ if (in .RelPermalink "/cli/") }}- **{{ .Title }}** ({{ .Permalink }})
+  {{ .Summary | plainify | truncate 200 }}
+
+{{ end }}{{ end }}
+
+---
+
+## Complete Documentation
+
+{{ range .Site.RegularPages }}
+
+# {{ .Title }}
+
+**Source:** {{ .Permalink }}
+**Last Updated:** {{ .Date.Format "2006-01-02" }}
+
+{{ .Content | replaceRE `<[^>]*>` "" | replaceRE `\n\n+` "\n\n" | replaceRE `&#34;` `"` | replaceRE `&#39;` `'` | replaceRE `&lt;` `<` | replaceRE `&gt;` `>` | replaceRE `&amp;` `&` }}
+
+{{ end }} 
