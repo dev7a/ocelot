@@ -15,89 +15,7 @@ showTitle: false
   </div>
 </div>
 
-<script>
-// Enhanced parallax scrolling effect with debugging
-(function() {
-  console.log('Parallax script loading...');
-  
-  // Wait for DOM to be ready
-  function initParallax() {
-    const hero = document.getElementById('hero-parallax');
-    if (!hero) {
-      console.log('Hero element not found');
-      return;
-    }
-    
-    console.log('Hero element found, initializing parallax...');
-    
-    // Check if user prefers reduced motion
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-      console.log('Reduced motion preferred, skipping parallax');
-      return;
-    }
-    
-    console.log('Parallax conditions met, setting up scroll listener...');
-    
-    let ticking = false;
-    
-    function updateParallax() {
-      const scrolled = window.pageYOffset;
-      const heroRect = hero.getBoundingClientRect();
-      const heroTop = heroRect.top + scrolled;
-      const heroHeight = heroRect.height;
-      
-      // Calculate parallax effect
-      const parallaxSpeed = 0.3; // Slower for more subtle effect
-      const yPos = scrolled * parallaxSpeed;
-      
-      // Apply the parallax effect
-      const newPosition = `center ${-yPos}px`;
-      hero.style.backgroundPosition = newPosition;
-      
-      // Debug output (remove in production)
-      if (scrolled % 50 === 0) { // Log every 50px of scroll
-        console.log(`Scroll: ${scrolled}px, BG Position: ${newPosition}`);
-      }
-      
-      ticking = false;
-    }
-    
-    function requestTick() {
-      if (!ticking) {
-        requestAnimationFrame(updateParallax);
-        ticking = true;
-      }
-    }
-    
-    // Set initial background position
-    hero.style.backgroundPosition = 'center 0px';
-    console.log('Initial background position set');
-    
-    // Add scroll listener
-    window.addEventListener('scroll', requestTick, { passive: true });
-    console.log('Scroll listener added');
-    
-    // Test the function immediately
-    updateParallax();
-    
-    // Cleanup on page unload
-    window.addEventListener('beforeunload', function() {
-      window.removeEventListener('scroll', requestTick);
-      console.log('Parallax cleanup completed');
-    });
-  }
-  
-  // Initialize when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initParallax);
-  } else {
-    initParallax();
-  }
-})();
-</script>
-
-**Ocelot** (OpenTelemetry Collector Extension Layer Optimization Toolkit) is a toolkit designed to simplify the creation of custom AWS Lambda Extension Layers for the OpenTelemetry Collector. It helps you add specific observability components or optimize your collector for particular use cases without maintaining a complex fork.
+**Ocelot** _(OpenTelemetry Collector Extension Layer Optimization Toolkit)_ is a toolkit designed to simplify the creation of custom AWS Lambda Extension Layers for the OpenTelemetry Collector. It helps you add specific observability components or optimize your collector for particular use cases without maintaining a complex fork.
 
 Ocelot integrates with the official [OpenTelemetry Lambda project](https://github.com/open-telemetry/opentelemetry-lambda) by leveraging its Go build tag system. This allows for the seamless inclusion of custom elements.
 
@@ -148,3 +66,5 @@ That's it! Ocelot will:
 > This is a work in progress, and the implementation is subject to change.
 
 For more information, visit the [documentation]({{< relref "docs" >}}). 
+
+<script src="/ocelot/js/parallax.js"></script>

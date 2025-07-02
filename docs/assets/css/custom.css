@@ -6,8 +6,9 @@
 
 /* Hero Section Styles - Full Width & Theme Aware with Background Parallax */
 body .hero-section {
+  background-color: #0a0a15 !important;
   background-image: url('/ocelot/images/ocelot-hero.jpg') !important;
-  background-size: 130% auto !important;
+  background-size: cover !important;
   background-position: center 0px;
   background-repeat: no-repeat !important;
   height: 50vh !important;
@@ -52,35 +53,16 @@ body .hero-content {
   padding: 2rem !important;
 }
 
-body .hero-title {
-  font-size: 3rem !important;
-  font-weight: 700 !important;
-  margin-bottom: 1rem !important;
-  color: #fff !important;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7) !important;
-}
-
 body .hero-subtitle {
   font-size: 1.5rem !important;
   font-weight: 500 !important;
-  margin-bottom: 1rem !important;
+  margin-bottom: 2rem !important;
   line-height: 1.4 !important;
   color: #fff !important;
 }
 
-body .hero-description {
-  font-size: 1.1rem !important;
-  font-weight: 400 !important;
-  margin-bottom: 2rem !important;
-  line-height: 1.5 !important;
-  color: #fff !important;
-  opacity: 0.9 !important;
-}
-
 /* Dark theme text (light text) */
-html[class~="dark"] body .hero-title,
-html[class~="dark"] body .hero-subtitle,
-html[class~="dark"] body .hero-description {
+html[class~="dark"] body .hero-subtitle {
   color: #fff !important;
 }
 
@@ -93,9 +75,18 @@ body .hero-cta {
 }
 
 body p.hero-description {
-  font-size: 1.5rem !important;  
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
 }
 
+body .hero-description {
+  font-size: 1.1rem !important;
+  font-weight: 400 !important;
+  margin-bottom: 2rem !important;
+  line-height: 1.5 !important;
+  color: #fff !important;
+  opacity: 0.9 !important;
+}
 
 body .hero-button {
   display: inline-block !important;
@@ -148,6 +139,16 @@ html[class~="dark"] body .hero-button-secondary:hover {
   box-shadow: 0 4px 12px rgba(31, 41, 55, 0.4) !important;
 }
 
+.pretty-table-3 {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #ddd;
+  table-layout: auto;
+}
+.pretty-table-3 td:last-child {
+  width: 100%;
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
   body .hero-section {
@@ -155,22 +156,10 @@ html[class~="dark"] body .hero-button-secondary:hover {
     min-height: 300px !important;
   }
   
-  body .hero-title {
-    font-size: 2rem !important;
-  }
-  
   body .hero-subtitle {
     font-size: 1.25rem !important;
   }
-  
-  body .hero-description {
-    font-size: 1rem !important;
-  }
-  
-  body .hero-content {
-    padding: 1rem !important;
-  }
-  
+    
   body .hero-cta {
     flex-direction: row !important;
     align-items: center !important;
@@ -179,30 +168,29 @@ html[class~="dark"] body .hero-button-secondary:hover {
   }
   
   body .hero-button {
-    width: 140px !important;
+    width: 144px !important;
     text-align: center !important;
     padding: 0.5rem 1rem !important;
     font-size: 0.9rem !important;
+  }
+
+  body p.hero-description {
+    font-size: 0.9rem !important;  
   }
 }
 
 @media (max-width: 480px) {
   body .hero-section {
-    height: 35vh !important;
+    height: 20vh !important;
     min-height: 250px !important;
-  }
-  
-  body .hero-title {
-    font-size: 1.5rem !important;
   }
   
   body .hero-subtitle {
     font-size: 0.5rem !important;
-    text-align: left !important;
   }
-  
+
   body p.hero-description {
-    font-size: 1.2rem !important;  
+    font-size: 0.9rem !important;  
   }
   
   body .hero-cta {

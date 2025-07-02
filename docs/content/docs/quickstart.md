@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-weight: 1
+weight: 20
 ---
 
 This guide walks you through building a custom OpenTelemetry Collector Lambda Layer directly from your local machine. This is the ideal starting point for testing custom components, developing new features, or managing private layers.

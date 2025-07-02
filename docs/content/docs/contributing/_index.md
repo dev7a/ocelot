@@ -1,8 +1,6 @@
 ---
 title: Contributing
-weight: 6
-cascade:
-  type: docs
+weight: 60
 ---
 
 Contributions are welcome! Whether you're adding a new component, improving the documentation, or fixing a bug, please follow this general workflow.

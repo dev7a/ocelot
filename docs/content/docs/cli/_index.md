@@ -1,6 +1,6 @@
 ---
 title: Tooling & CLI
-weight: 5
+weight: 35
 cascade:
   type: docs
 ---

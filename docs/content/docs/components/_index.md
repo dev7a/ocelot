@@ -1,6 +1,6 @@
 ---
 title: Components
-weight: 4
+weight: 40
 cascade:
   type: docs
 ---

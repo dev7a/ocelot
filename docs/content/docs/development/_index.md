@@ -1,6 +1,6 @@
 ---
 title: Development & Testing
-weight: 7
+weight: 50
 ---
 
 The project includes a comprehensive test suite covering various components, utilities, and integration scenarios. Tests use `pytest` and are designed to run in isolation without requiring AWS credentials.

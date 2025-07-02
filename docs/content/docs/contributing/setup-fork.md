@@ -1,6 +1,6 @@
 ---
-title: "Setup Fork for Automated Publishing"
-weight: 2
+title: "Setup your fork"
+weight: 10
 ---
 
 To enable the GitHub Actions workflow in your fork to publish Lambda layers to your own AWS account, you need to configure a trust relationship between GitHub and AWS using OIDC (OpenID Connect). This allows the workflow to securely assume an IAM role in your account without needing long-lived access keys.
