@@ -18,8 +18,7 @@ dependencies:
     
   # Span Event to Log connector
   lambdacomponents.connector.spaneventtolog:
-    - github.com/dev7a/otelcol-con-spaneventtolog@v0.3.1
-
+    - github.com/dev7a/otelcol-con-spaneventtolog@v0.6.0
   # AWS Secrets Manager Auth extension
   # Example of specifying a fixed version with @version syntax
   lambdacomponents.extension.asmauthextension:
